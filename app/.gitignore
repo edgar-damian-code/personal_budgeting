@@ -1,0 +1,17 @@
+.DS_Store
+node_modules/
+
+# Local Windows-only npm script-shell override (breaks the Linux Databricks Apps
+# container if bundled — see script-shell in npm docs). Never deploy this file.
+.npmrc
+client/dist/
+dist/
+build/
+.env
+.databricks/
+.smoke-test/
+test-results/
+playwright-report/
+
+# Auto-generated types (endpoint-specific, varies per developer)
+shared/appkit-types/serving.d.ts
