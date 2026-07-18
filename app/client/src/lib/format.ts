@@ -35,6 +35,11 @@ export function formatMonthOnly(isoDate: string): string {
   return monthOnlyFormatter.format(new Date(isoDate));
 }
 
+// `fraction` is a 0-1 ratio (e.g. net_cashflow / income), not an already-scaled percentage.
+export function formatPercent(fraction: number): string {
+  return `${(fraction * 100).toFixed(1)}%`;
+}
+
 export function currentMonthStart(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;

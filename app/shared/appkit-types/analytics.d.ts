@@ -28,6 +28,8 @@ declare module "@databricks/appkit-ui/react" {
           actual_amount: number;
           /** @sqlType BIGINT */
           transaction_count: number;
+          /** @sqlType DECIMAL(30,2) */
+          ytd_actual_amount: number;
           /** @sqlType DOUBLE */
           variance: number;
           /** @sqlType DOUBLE */
@@ -40,6 +42,12 @@ declare module "@databricks/appkit-ui/react" {
         result: Array<{
           /** @sqlType DATE */
           month: string;
+          /** @sqlType STRING */
+          group: string;
+          /** @sqlType STRING */
+          category: string;
+          /** @sqlType STRING */
+          type: string;
           /** @sqlType DECIMAL(22,2) */
           income: number;
           /** @sqlType DECIMAL(22,2) */
