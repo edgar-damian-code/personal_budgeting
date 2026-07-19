@@ -33,11 +33,11 @@ The AppKit app is scaffolded and **deployed** (RUNNING on Databricks Apps). Buil
 | Tab | Route | Status | Key files |
 |---|---|---|---|
 | 1. Cash Flow | `/` | ✅ Built | `app/client/src/pages/cashflow/` |
-| 2. Credit Cards | `/credit-cards` | ⬜ Stub (`ComingSoonPage`) | — |
+| 2. Credit Cards | `/credit-cards` | ✅ Built | `app/client/src/pages/creditcards/` |
 | 3. Budget vs Actual | `/budget` | ✅ Built | `app/client/src/pages/budget/` |
 | 4. Spend Analysis | `/spend` | ⬜ Stub (`ComingSoonPage`) | — |
 
-Remaining work: build Tab 2 (Credit Cards) and Tab 4 (Spend Analysis).
+Remaining work: build Tab 4 (Spend Analysis).
 
 ---
 
@@ -240,15 +240,23 @@ used to live here was removed when Tab 3 shipped (budget detail is now owned by 
 
 ---
 
-#### Tab 2 — Credit Cards
-**Query**: `gold.credit_card_monthly`
+#### Tab 2 — Credit Cards — ✅ BUILT
+**Queries**: `credit_card_monthly` (per-month, param `month`) + `card_payments` (recent payments from
+`silver.transactions`, `category = 'Credit Card'` + `amount > 0` on the 3 card accounts) + `credit_card_months`
+(distinct months for the selector). Files: `app/client/src/pages/creditcards/` (`CreditCardsPage`,
+`BalanceHero`, `CardWallet`, `PaymentsSection`, `ActivityTable`, `NetChip`, `cards.ts`, `types.ts`).
 
-- Current balance cards per card (always latest snapshot):
-  - Hilton Honors Aspire (Amex 1002)
-  - Prime Visa (Chase 8957)
-  - Southwest Plus (Chase 4870)
-- Monthly activity table: charges, payments received, net activity per card
-- Bar chart: charges by card over last 6 months
+Built with: header + month selector (no Groups slicer on this tab); a **Total Balance hero** (aggregate
+balance, net-movement chip, by-card split bar, charges/payments/net for the month); a **card wallet** of 3
+issuer-colored card faces (balance, `balance_as_of`, charges + net); a **Payments section** (per-card
+last-payment cards + a chronological recent-payments list from `card_payments`); and a **Monthly Activity
+table** (Card · Charges · Payments · Net Activity · Txns · Balance).
+
+**Net direction semantics:** `net_activity = charges − payments_received`; **negative (paid down) is good →
+`--success`; positive (balance grew) → `--destructive`** (see `NetChip`/`netIsGood`). Card identity colors
+are the `--card-*` tokens in `index.css` (Aspire=gold, Prime Visa=blue, Southwest=teal) — decorative, kept
+away from the success/destructive used for net direction. Card faces use dark ink (`--card-ink`) on the
+vibrant fill, theme-independent.
 
 ---
 
@@ -315,16 +323,15 @@ personal-budgeting/
 
 ## What to do next (in order)
 
-Scaffold + Tab 1 (Cash Flow) + Tab 3 (Budget vs Actual) are done and deployed. Remaining:
+Scaffold + Tab 1 (Cash Flow) + Tab 2 (Credit Cards) + Tab 3 (Budget vs Actual) are done and deployed. Remaining:
 
-1. Build **Tab 2 — Credit Cards** (`gold.credit_card_monthly`; swap `ComingSoonPage` at `/credit-cards`
-   in `App.tsx` for a real page under `app/client/src/pages/credit-cards/`).
-2. Build **Tab 4 — Spend Analysis** (queries `silver.transactions` directly — needs a new
-   `config/queries/*.sql`).
-3. When adding a query: write the `.sql`, run `npm run typegen`, THEN write the UI against the generated
+1. Build **Tab 4 — Spend Analysis** (queries `silver.transactions` directly — needs a new
+   `config/queries/*.sql`; free-form date range + category/group/account filters, transaction table,
+   summary chart, row count + total spend).
+2. When adding a query: write the `.sql`, run `npm run typegen`, THEN write the UI against the generated
    types. **Restart the dev server** so the new query registers (see Notes).
-4. Extend `tests/smoke.spec.ts` with assertions for each new tab (currently only Cash Flow is asserted).
-5. Deploy: from `app/`, `databricks apps deploy -t default --profile personal-budgeting`.
+3. Extend `tests/smoke.spec.ts` with assertions for each built tab (currently only Cash Flow is asserted).
+4. Deploy: from `app/`, `databricks apps deploy -t default --profile personal-budgeting`.
 
 ---
 

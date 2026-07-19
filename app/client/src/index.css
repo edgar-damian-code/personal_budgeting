@@ -48,6 +48,14 @@
   --group-discretionary: #e8b54a; /* amber */
   --group-travel: #f4796b;        /* coral / red */
   --group-other: #9aa3ad;         /* grey */
+
+  /* Credit-card brand identity accents (Credit Cards tab wallet + dots + split bar).
+     Decorative per-card colors, NOT semantic — kept away from success-green /
+     destructive-red, which encode net direction (paid down vs balance up). */
+  --card-aspire: #e8b54a;    /* Amex Hilton Aspire — gold */
+  --card-prime: #6aa6e8;     /* Chase Prime Visa — blue */
+  --card-southwest: #4ecb8f; /* Chase Southwest — teal */
+  --card-ink: #0b0d10;       /* dark text on the vibrant card faces (theme-independent) */
 }
 
 @media (prefers-color-scheme: dark) {

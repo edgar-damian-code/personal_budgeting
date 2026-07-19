@@ -44,6 +44,61 @@ declare module "@databricks/appkit-ui/react" {
           pct_used: number;
         }>;
       };
+    card_payments: {
+        name: "card_payments";
+        parameters: Record<string, never>;
+        result: Array<{
+          /** @sqlType DATE */
+          date: string;
+          /** @sqlType STRING */
+          description: string;
+          /** @sqlType STRING */
+          account: string;
+          /** @sqlType STRING */
+          account_num: string;
+          /** @sqlType STRING */
+          institution: string;
+          /** @sqlType DECIMAL(10,2) */
+          amount: number;
+        }>;
+      };
+    credit_card_monthly: {
+        name: "credit_card_monthly";
+        parameters: {
+          /** DATE - use sql.date() */
+          month: SQLDateMarker;
+        };
+        result: Array<{
+          /** @sqlType DATE */
+          month: string;
+          /** @sqlType STRING */
+          account: string;
+          /** @sqlType STRING */
+          account_num: string;
+          /** @sqlType STRING */
+          institution: string;
+          /** @sqlType DECIMAL(22,2) */
+          charges: number;
+          /** @sqlType DECIMAL(22,2) */
+          payments_received: number;
+          /** @sqlType DECIMAL(23,2) */
+          net_activity: number;
+          /** @sqlType BIGINT */
+          transaction_count: number;
+          /** @sqlType DECIMAL(12,2) */
+          current_balance: number;
+          /** @sqlType DATE */
+          balance_as_of: string;
+        }>;
+      };
+    credit_card_months: {
+        name: "credit_card_months";
+        parameters: Record<string, never>;
+        result: Array<{
+          /** @sqlType DATE */
+          month: string;
+        }>;
+      };
     monthly_cashflow: {
         name: "monthly_cashflow";
         parameters: Record<string, never>;
