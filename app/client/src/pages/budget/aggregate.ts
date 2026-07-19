@@ -1,28 +1,8 @@
 import type { BudgetVsActualRow } from '../cashflow/types';
+import { GROUP_ORDER, GROUP_COLOR, groupColor, groupRank } from '../../lib/groupColors';
 
-// The 5 fixed category groups, in display order (mirrors the mockup / CLAUDE.md).
-export const GROUP_ORDER = ['Living', 'Financial', 'Discretionary', 'Travel', 'Other'] as const;
-
-// Categorical palette for the donut segments and group dots. Uses the dedicated
-// --group-* identity tokens (defined in index.css, stable across light/dark) so each
-// group keeps a consistent identity color matching the design mockup. NOT the --chart-*
-// tokens — those shift hue between themes and can't match the mockup consistently.
-export const GROUP_COLOR: Record<string, string> = {
-  Living: 'var(--group-living)',
-  Financial: 'var(--group-financial)',
-  Discretionary: 'var(--group-discretionary)',
-  Travel: 'var(--group-travel)',
-  Other: 'var(--group-other)',
-};
-
-export function groupColor(group: string): string {
-  return GROUP_COLOR[group] ?? 'var(--muted-foreground)';
-}
-
-function groupRank(group: string): number {
-  const i = (GROUP_ORDER as readonly string[]).indexOf(group);
-  return i === -1 ? GROUP_ORDER.length : i;
-}
+// Re-export the shared group palette so existing budget-component imports keep working.
+export { GROUP_ORDER, GROUP_COLOR, groupColor };
 
 export type BudgetStatus = 'success' | 'warning' | 'destructive' | 'muted';
 

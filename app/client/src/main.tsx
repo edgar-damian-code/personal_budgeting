@@ -12,7 +12,7 @@ import { ErrorBoundary } from './ErrorBoundary.tsx';
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
         {/*
          * Surfaces resource readiness (e.g. SQL warehouse cold-starts) as a
          * single sonner toast across the whole tree. Both are no-ops when

@@ -1,100 +1,78 @@
 @import "@databricks/appkit-ui/styles.css";
 
+/* ── House of Damian palette ────────────────────────────────────────────────
+   next-themes runs with attribute="class", so light tokens live in :root and
+   dark tokens in .dark (NOT @media prefers-color-scheme). Signal Green is the
+   primary; light green is darkened for AA contrast on white. */
 :root {
-  /* --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.21 0.006 285.885);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --success: oklch(0.603 0.135 166.892);
-  --success-foreground: oklch(1 0 0);
-  --warning: oklch(0.795 0.157 78.748);
-  --warning-foreground: oklch(0.199 0.027 238.732);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.21 0.006 285.885);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.705 0.015 286.067); */
+  --radius: 0.625rem;
+  --background: #f6f7f8;
+  --foreground: #0b0d10;
+  --card: #ffffff;
+  --card-foreground: #0b0d10;
+  --popover: #ffffff;
+  --popover-foreground: #0b0d10;
+  --primary: #16b981; /* Signal Green, darkened for AA on white */
+  --primary-foreground: #ffffff;
+  --secondary: #eef0f2;
+  --secondary-foreground: #0b0d10;
+  --muted: #eef0f2;
+  --muted-foreground: #5f6670;
+  --accent: #eef0f2;
+  --accent-foreground: #0b0d10;
+  --destructive: #dc5a4c;
+  --destructive-foreground: #ffffff;
+  --success: #16b981;
+  --success-foreground: #ffffff;
+  --warning: #c8901d;
+  --warning-foreground: #ffffff;
+  --border: rgba(0, 0, 0, 0.1);
+  --input: rgba(0, 0, 0, 0.12);
+  --ring: #34d399;
+  --brass: #b8863f; /* premium accent — charts / rare emphasis */
 
-  /* Category-group identity palette (Budget tab donut + group dots). Fixed per group so
-     the color reads as the group's identity — not a status — and stays consistent across
-     light/dark (the shadcn --chart-* tokens shift hue between themes, so they can't).
-     Values match the design mockup. */
-  --group-living: #4ecb8f;        /* green */
-  --group-financial: #6aa6e8;     /* blue */
+  /* Category-group identity palette (Budget / Spend group dots + Budget donut).
+     Fixed per group so the color reads as the group's identity — not a status —
+     and stays consistent across light/dark. See lib/groupColors.ts. */
+  --group-living: #4ecb8f; /* green */
+  --group-financial: #6aa6e8; /* blue */
   --group-discretionary: #e8b54a; /* amber */
-  --group-travel: #f4796b;        /* coral / red */
-  --group-other: #9aa3ad;         /* grey */
+  --group-travel: #f4796b; /* coral / red */
+  --group-other: #9aa3ad; /* grey */
 
-  /* Credit-card brand identity accents (Credit Cards tab wallet + dots + split bar).
-     Decorative per-card colors, NOT semantic — kept away from success-green /
+  /* Credit-card brand identity accents (Credit Cards wallet + Spend ledger dots).
+     Decorative per-account colors, NOT semantic — kept away from success-green /
      destructive-red, which encode net direction (paid down vs balance up). */
-  --card-aspire: #e8b54a;    /* Amex Hilton Aspire — gold */
-  --card-prime: #6aa6e8;     /* Chase Prime Visa — blue */
+  --card-aspire: #e8b54a; /* Amex Hilton Aspire — gold */
+  --card-prime: #6aa6e8; /* Chase Prime Visa — blue */
   --card-southwest: #4ecb8f; /* Chase Southwest — teal */
-  --card-ink: #0b0d10;       /* dark text on the vibrant card faces (theme-independent) */
+  --card-checking: #b08cf0; /* Ally joint checking (1871) — violet (Spend ledger) */
+  --card-ink: #0b0d10; /* dark text on the vibrant card faces (theme-independent) */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* --background: oklch(0.141 0.005 285.823);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.21 0.006 285.885);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.21 0.006 285.885);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.92 0.004 286.32);
-    --primary-foreground: oklch(0.21 0.006 285.885);
-    --secondary: oklch(0.274 0.006 286.033);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.274 0.006 286.033);
-    --muted-foreground: oklch(0.705 0.015 286.067);
-    --accent: oklch(0.274 0.006 286.033);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --destructive-foreground: oklch(0.985 0 0);
-    --success: oklch(0.67 0.12 167);
-    --success-foreground: oklch(1 0 0);
-    --warning: oklch(0.83 0.165 85);
-    --warning-foreground: oklch(0.199 0.027 238.732);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.552 0.016 285.938);
-    --chart-1: oklch(0.488 0.243 264.376);
-    --chart-2: oklch(0.696 0.17 162.48);
-    --chart-3: oklch(0.769 0.188 70.08);
-    --chart-4: oklch(0.627 0.265 303.9);
-    --chart-5: oklch(0.645 0.246 16.439);
-    --sidebar: oklch(0.21 0.006 285.885);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.274 0.006 286.033);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.552 0.016 285.938); */
-  }
+.dark {
+  --background: #07080a; /* Ink */
+  --foreground: #e9ebee;
+  --card: #101317; /* Surface */
+  --card-foreground: #e9ebee;
+  --popover: #171b20; /* Elevated */
+  --popover-foreground: #e9ebee;
+  --primary: #34d399; /* Signal Green */
+  --primary-foreground: #052018;
+  --secondary: #171b20;
+  --secondary-foreground: #e9ebee;
+  --muted: #171b20;
+  --muted-foreground: #8b929c;
+  --accent: #171b20;
+  --accent-foreground: #e9ebee;
+  --destructive: #f4796b;
+  --destructive-foreground: #07080a;
+  --success: #34d399;
+  --success-foreground: #052018;
+  --warning: #e8b54a;
+  --warning-foreground: #07080a;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #34d399;
+  --brass: #d9b06a;
 }

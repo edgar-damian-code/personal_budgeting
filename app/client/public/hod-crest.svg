@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 122" width="100" height="122" role="img" aria-label="House of Damian">
+  <defs>
+    <linearGradient id="hodShield" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#12352b"></stop>
+      <stop offset="1" stop-color="#0a0f0d"></stop>
+    </linearGradient>
+  </defs>
+  <path d="M50 5 L91 19 L91 60 C91 90 72 108 50 117 C28 108 9 90 9 60 L9 19 Z" fill="url(#hodShield)" stroke="#34d399" stroke-width="2.4" stroke-linejoin="round"></path>
+  <line x1="20" y1="44" x2="80" y2="44" stroke="#34d399" stroke-width="1.4" opacity="0.45"></line>
+  <path d="M50 20 L54 27 L50 34 L46 27 Z" fill="#34d399"></path>
+  <rect x="33" y="76" width="8" height="14" rx="2" fill="#34d399" opacity="0.5"></rect>
+  <rect x="46" y="66" width="8" height="24" rx="2" fill="#34d399" opacity="0.75"></rect>
+  <rect x="59" y="56" width="8" height="34" rx="2" fill="#34d399"></rect>
+  <path d="M35 72 L50 62 L65 51" fill="none" stroke="#34d399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+  <circle cx="65" cy="51" r="3" fill="#34d399"></circle>
+</svg>

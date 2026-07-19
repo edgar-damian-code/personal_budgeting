@@ -1,6 +1,7 @@
-<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M64 64H224V224H64V64Z" fill="#FABFBA"/>
-<path d="M440 448L280 448L280 352C280 316.654 308.654 288 344 288L376 288C411.346 288 440 316.654 440 352L440 448Z" fill="#FABFBA"/>
-<path d="M152 288L240 448H64L152 288Z" fill="#FF5F46"/>
-<path d="M280 148C280 101.608 317.608 64 364 64V64C410.392 64 448 101.608 448 148V148C448 194.392 410.392 232 364 232V232C317.608 232 280 194.392 280 148V148Z" fill="#FF5F46"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 116" width="100" height="116" role="img" aria-label="House of Damian">
+  <path d="M50 4 L92 18 L92 60 C92 91 72 109 50 116 C28 109 8 91 8 60 L8 18 Z" fill="#34d399"></path>
+  <path d="M50 20 L55 28 L50 36 L45 28 Z" fill="#07080a"></path>
+  <rect x="31" y="74" width="10" height="18" rx="2.5" fill="#07080a"></rect>
+  <rect x="45" y="60" width="10" height="32" rx="2.5" fill="#07080a"></rect>
+  <rect x="59" y="48" width="10" height="44" rx="2.5" fill="#07080a"></rect>
 </svg>

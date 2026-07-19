@@ -20,6 +20,18 @@ export function formatCurrency(value: number): string {
   return currencyFormatter.format(value);
 }
 
+const currencyCentsFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+// Currency with cents, e.g. "$184.20" (used in the transaction ledger).
+export function formatCurrencyCents(value: number): string {
+  return currencyCentsFormatter.format(value);
+}
+
 export function formatSignedCurrency(value: number): string {
   return signedCurrencyFormatter.format(value);
 }

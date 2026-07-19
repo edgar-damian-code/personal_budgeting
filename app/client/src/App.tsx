@@ -12,8 +12,28 @@ import { Menu } from 'lucide-react';
 import { CashFlowPage } from './pages/cashflow/CashFlowPage';
 import { BudgetPage } from './pages/budget/BudgetPage';
 import { CreditCardsPage } from './pages/creditcards/CreditCardsPage';
-import { ComingSoonPage } from './pages/ComingSoonPage';
+import { SpendAnalysisPage } from './pages/spend/SpendAnalysisPage';
 import { ThemeToggle } from './components/ThemeToggle';
+
+// House of Damian crest — inherits currentColor so it adapts to light/dark via text-*.
+function HodCrest({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 100 122" fill="none" stroke="currentColor" className={className} aria-hidden>
+      <path
+        d="M50 5 L91 19 L91 60 C91 90 72 108 50 117 C28 108 9 90 9 60 L9 19 Z"
+        strokeWidth="2.4"
+        strokeLinejoin="round"
+      />
+      <line x1="20" y1="44" x2="80" y2="44" strokeWidth="1.4" opacity="0.45" />
+      <path d="M50 20 L54 27 L50 34 L46 27 Z" fill="currentColor" stroke="none" />
+      <rect x="33" y="76" width="8" height="14" rx="2" fill="currentColor" stroke="none" opacity="0.5" />
+      <rect x="46" y="66" width="8" height="24" rx="2" fill="currentColor" stroke="none" opacity="0.75" />
+      <rect x="59" y="56" width="8" height="34" rx="2" fill="currentColor" stroke="none" />
+      <path d="M35 72 L50 62 L65 51" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="65" cy="51" r="3" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
@@ -57,7 +77,12 @@ function Layout() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b px-4 md:px-6 py-3 flex items-center gap-4">
-        <h1 className="text-lg font-semibold text-foreground">personal-budgeting</h1>
+        <div className="flex items-center gap-2.5">
+          <HodCrest className="h-7 w-7 text-primary" />
+          <span className="hidden text-base font-bold tracking-wide text-foreground sm:inline">
+            HOUSE OF <span className="text-primary">DAMIAN</span>
+          </span>
+        </div>
         {/* Desktop nav — hidden below md breakpoint */}
         <NavLinks className="hidden md:flex gap-1" linkClass={navLinkClass} />
         <div className="ml-auto flex items-center gap-1">
@@ -94,7 +119,7 @@ const router = createBrowserRouter([
       { path: '/', element: <CashFlowPage /> },
       { path: '/credit-cards', element: <CreditCardsPage /> },
       { path: '/budget', element: <BudgetPage /> },
-      { path: '/spend', element: <ComingSoonPage title="Spend Analysis" /> },
+      { path: '/spend', element: <SpendAnalysisPage /> },
     ],
   },
 ]);

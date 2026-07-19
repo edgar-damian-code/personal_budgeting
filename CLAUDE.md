@@ -35,9 +35,31 @@ The AppKit app is scaffolded and **deployed** (RUNNING on Databricks Apps). Buil
 | 1. Cash Flow | `/` | ✅ Built | `app/client/src/pages/cashflow/` |
 | 2. Credit Cards | `/credit-cards` | ✅ Built | `app/client/src/pages/creditcards/` |
 | 3. Budget vs Actual | `/budget` | ✅ Built | `app/client/src/pages/budget/` |
-| 4. Spend Analysis | `/spend` | ⬜ Stub (`ComingSoonPage`) | — |
+| 4. Spend Analysis | `/spend` | ✅ Built | `app/client/src/pages/spend/` |
 
-Remaining work: build Tab 4 (Spend Analysis).
+**All four tabs are built and deployed.** (`ComingSoonPage` is no longer routed anywhere.)
+
+---
+
+## Branding — House of Damian
+
+The app is branded **House of Damian** (premium fintech, dark-default). Applied from the branding handoff:
+
+- **Identity**: green heraldic crest (ledger-bars mark) + "HOUSE OF DAMIAN" wordmark. In-app crest is an
+  inline `HodCrest` component in `App.tsx` (`currentColor` → `text-primary`, adapts to theme). Source SVGs in
+  `app/client/public/`: `favicon.svg` (solid green shield, ink cutout — the tab icon), `hod-crest.svg`
+  (full-color gradient, marketing), `hod-crest-mono.svg` (stroke/mono). PNG favicons (16/32/48/180/192/512)
+  were rasterized from `favicon.svg` via headless chromium (no local image tooling — see below).
+- **Theme**: dark is the default (`defaultTheme="dark"` in `main.tsx`, `enableSystem` kept). Tokens live in
+  `client/src/index.css` — **light in `:root`, dark in `.dark`** (next-themes `attribute="class"`; the old
+  `@media prefers-color-scheme` block was removed). Signal Green is `--primary` (`#16b981` light / `#34d399`
+  dark), so the active nav pill is green automatically. Ink `#07080a`, Surface `#101317`, Elevated `#171b20`.
+  `--brass` is a premium accent. Semantic tokens unchanged in meaning (success/destructive/warning); the
+  `--group-*` / `--card-*` identity colors are theme-independent and stay in `:root`.
+- **Naming**: `<title>` and `site.webmanifest` name/short_name are "House of Damian". The Databricks **app
+  resource name stays `personal-budgeting`** (deployment identifier — not user-facing, ≤26 chars).
+- **To regenerate PNG favicons** (no ImageMagick/sharp installed): a throwaway Playwright spec renders
+  `favicon.svg` at each size with `omitBackground` and screenshots the `<svg>` element into `client/public/`.
 
 ---
 
@@ -283,19 +305,31 @@ light and dark and so can't stay consistent with the design mockup.
 
 ---
 
-#### Tab 4 — Spend Analysis
-**Query**: `silver.transactions` (direct — not a Gold table)
+#### Tab 4 — Spend Analysis — ✅ BUILT
+**Query**: `spend_transactions` (params `start_date`, `end_date`) — the only tab that queries
+`silver.transactions` directly (flexible filtering can't be pre-aggregated). Files:
+`app/client/src/pages/spend/` (`SpendAnalysisPage`, `DateRangePicker`, `FilterRail`, `SummaryStrip`,
+`SpendByCategoryChart`, `TopMerchants`, `TransactionLedger`, `aggregate.ts`, `dateRange.ts`, `types.ts`).
 
-This is the free-form analysis tab. Queries silver directly because it needs
-flexible filtering that can't be pre-aggregated.
+Built with: header + **date-range picker** (Calendar-in-Popover with quick presets; default month-to-date,
+drives the query params → re-fetch); a **collapsible filter rail** (Group / Category / Account checklists,
+client-side over the fetched rows, default all-checked); a **summary strip** (Total Spend, Transactions,
+Avg/Day, Top Category); a **Spend-by-Category chart** (horizontal bars, category/group `groupBy` toggle,
+client-side); a **Top Merchants** table (top 6 by description, share bar, MoM vs the prior equal-length
+period via a second `spend_transactions` query for the prior window); and a day-grouped **Transaction Ledger**
+(capped at 300 rows, keyed by `transaction_id`).
 
-- Date range picker
-- Filters: category (multi-select), group (multi-select), account (multi-select)
-- Transaction table: date, description, category, amount, account
-  - Sortable columns
-  - Expenses shown as positive with a negative indicator (or just raw negative — designer's call)
-- Summary bar/line chart: spend by category or by month depending on filter selection
-- Row count and total spend shown above the table
+**⚠️ `hide_from_reports` is on `silver.categories`, NOT `silver.transactions`** — the query LEFT JOINs
+categories to respect the flag (`c.hide_from_reports = false OR IS NULL`). Expenses only: `amount < 0` and
+`type != 'Transfer'`. Note: some internal transfers/savings moves are categorized with a non-`Transfer`
+type (e.g. "Paycheck"/"Income" group with negative amounts) and will appear in the totals — users can
+uncheck those groups in the rail. **Scope**: the query is limited to the joint checking account (1871) +
+the 3 credit cards (1002/8957/4870) — see the `account_num IN (…)` filter.
+
+**Colors**: the chart/merchants use group colors (shared `lib/groupColors.ts`, `--group-*` tokens, also used
+by Budget/Credit Cards). The **Transaction Ledger dots are per-account** (`accountColor()` in
+`spend/aggregate.ts`): the 3 cards reuse the Credit Cards `--card-*` tokens and checking uses
+`--card-checking`.
 
 ---
 
@@ -328,15 +362,19 @@ personal-budgeting/
 
 ## What to do next (in order)
 
-Scaffold + Tab 1 (Cash Flow) + Tab 2 (Credit Cards) + Tab 3 (Budget vs Actual) are done and deployed. Remaining:
+**All four tabs are built and deployed.** Remaining polish / follow-ups:
 
-1. Build **Tab 4 — Spend Analysis** (queries `silver.transactions` directly — needs a new
-   `config/queries/*.sql`; free-form date range + category/group/account filters, transaction table,
-   summary chart, row count + total spend).
-2. When adding a query: write the `.sql`, run `npm run typegen`, THEN write the UI against the generated
-   types. **Restart the dev server** so the new query registers (see Notes).
-3. Extend `tests/smoke.spec.ts` with assertions for each built tab (currently only Cash Flow is asserted).
-4. Deploy: from `app/`, `databricks apps deploy -t default --profile personal-budgeting`.
+1. Extend `tests/smoke.spec.ts` with assertions for each tab (currently only Cash Flow is asserted; the
+   other three render but aren't covered by the smoke suite).
+2. Consider codifying the UC grants (gold + silver `SELECT`/`USE SCHEMA` for the app SP) declaratively in
+   `databricks.yml` — they're currently applied imperatively (see Notes), so a from-scratch recreate needs
+   them re-run.
+3. Optional: sortable columns on the ledger/merchants (reuse `SortableTableHead`); persist the Spend rail
+   open/closed state to `localStorage`.
+
+When adding a query: write the `.sql`, run `npm run typegen`, THEN write the UI against the generated types.
+**Restart the dev server** so a NEW query registers (see Notes). Deploy: from `app/`,
+`databricks apps deploy -t default --profile personal-budgeting`.
 
 ---
 
@@ -370,6 +408,17 @@ Scaffold + Tab 1 (Cash Flow) + Tab 2 (Credit Cards) + Tab 3 (Budget vs Actual) a
 - **Deploy = `databricks apps deploy -t default --profile personal-budgeting`** (validates → deploys →
   starts, returns the URL). Do NOT use bare `databricks bundle deploy` (creates the app with `no_compute`,
   stays stopped). `apps validate` runs the smoke test as a gate, so keep it green.
+- **App SP needs UC `SELECT` + `USE SCHEMA` on every schema a query touches.** The workspace build runs
+  `typegen --wait` (DESCRIBE QUERY) as the app's service principal — a missing grant fails the build with
+  `INSUFFICIENT_PERMISSIONS`, not just at runtime. The SP (`1a8d86cb-…`) currently has `SELECT`+`USE SCHEMA`
+  on `personal_budgeting.gold` **and** `personal_budgeting.silver` (granted imperatively via SQL, mirroring
+  each other — not in `databricks.yml`). Any new schema a query reads needs the same grant first.
+- **`hide_from_reports` lives on `silver.categories`, NOT `silver.transactions`.** To respect it when
+  querying transactions directly, LEFT JOIN `silver.categories` on `category` and filter
+  `c.hide_from_reports = false OR c.hide_from_reports IS NULL`. (See `spend_transactions.sql`.)
+- **Shared group palette:** `client/src/lib/groupColors.ts` exports `GROUP_ORDER` / `GROUP_COLOR` /
+  `groupColor` / `groupRank` (the `--group-*` tokens). Budget, Credit Cards, and Spend Analysis all import
+  it — don't redefine the map per page.
 - **Colors:** map semantic status to tokens (`--success` / `--warning` / `--destructive` /
   `--muted-foreground`). For categorical identity (e.g. the budget group palette) define dedicated tokens
   in `client/src/index.css` (we use `--group-*`) — do NOT reach for the shadcn `--chart-1..5` tokens for
