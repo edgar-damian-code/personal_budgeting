@@ -1,7 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { CreditCard } from 'lucide-react';
 import { useAnalyticsQuery } from '@databricks/appkit-ui/react';
-import { sql } from '@databricks/appkit-ui/js';
 import {
   Alert,
   AlertDescription,
@@ -11,48 +10,27 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
   Skeleton,
 } from '@databricks/appkit-ui/react';
-import { formatMonthLong, formatMonthOnly, currentMonthStart } from '../../lib/format';
+import { formatMonthLong } from '../../lib/format';
 import { BalanceHero, type CardTotals } from './BalanceHero';
 import { CardWallet } from './CardWallet';
 import { PaymentsSection } from './PaymentsSection';
 import { ActivityTable } from './ActivityTable';
-import type { CardPaymentRow, CreditCardMonthlyRow, CreditCardMonthRow } from './types';
+import type { CardPaymentRow, CreditCardMonthlyRow } from './types';
 
 export function CreditCardsPage() {
   const noParams = useMemo(() => ({}), []);
-  const { data: monthsData, loading: monthsLoading, error: monthsError } = useAnalyticsQuery(
-    'credit_card_months',
+
+  // Point-in-time page: the query returns the latest month automatically, so there is no
+  // month selector — the month shown is derived from the returned rows.
+  const { data: cardData, loading: cardLoading, error: cardError } = useAnalyticsQuery(
+    'credit_card_monthly',
     noParams,
   );
-
-  const months = useMemo(() => {
-    const rows = (monthsData ?? []) as CreditCardMonthRow[];
-    return rows.map((r) => r.month).sort((a, b) => a.localeCompare(b));
-  }, [monthsData]);
-
-  const defaultMonth = useMemo(() => {
-    if (!months.length) return null;
-    const todayMonth = currentMonthStart();
-    return months.includes(todayMonth) ? todayMonth : months[months.length - 1];
-  }, [months]);
-
-  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
-  const activeMonth = selectedMonth ?? defaultMonth;
-
-  const cardParams = useMemo(() => ({ month: sql.date(activeMonth ?? '1970-01-01') }), [activeMonth]);
-  const { data: cardData, loading: cardLoading, error: cardError } = useAnalyticsQuery('credit_card_monthly', cardParams);
   const cards = useMemo(() => (cardData ?? []) as CreditCardMonthlyRow[], [cardData]);
 
-  // Recent payments are not month-scoped (a running "last 12"), so no params.
+  // Recent payments are a running "last 12" across cards — not month-scoped.
   const { data: paymentData, loading: paymentLoading, error: paymentError } = useAnalyticsQuery(
     'card_payments',
     noParams,
@@ -73,51 +51,17 @@ export function CreditCardsPage() {
     return { balance, charges, payments, net };
   }, [cards]);
 
-  const monthsByYear = useMemo(() => {
-    const groups = new Map<string, string[]>();
-    for (const m of months) {
-      const year = m.slice(0, 4);
-      if (!groups.has(year)) groups.set(year, []);
-      groups.get(year)!.push(m);
-    }
-    return [...groups.entries()]
-      .sort(([a], [b]) => b.localeCompare(a))
-      .map(([year, ms]) => [year, [...ms].reverse()] as const);
-  }, [months]);
-
-  const anyError = monthsError ?? cardError ?? paymentError;
-  const loading = monthsLoading || cardLoading || paymentLoading;
+  const activeMonth = cards[0]?.month ?? null;
+  const anyError = cardError ?? paymentError;
+  const loading = cardLoading || paymentLoading;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Credit Cards</h2>
-          <p className="text-sm text-muted-foreground">
-            Balances &amp; monthly activity{activeMonth ? ` · ${formatMonthLong(activeMonth)}` : ''}
-          </p>
-        </div>
-        {months.length > 0 && (
-          <Select value={activeMonth ?? undefined} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-[220px]">
-              <SelectValue placeholder="Select a month">
-                {activeMonth ? formatMonthLong(activeMonth) : undefined}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {monthsByYear.map(([year, ms]) => (
-                <SelectGroup key={year}>
-                  <SelectLabel>{year}</SelectLabel>
-                  {ms.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {formatMonthOnly(m)}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+      <div>
+        <h2 className="text-2xl font-bold text-foreground">Credit Cards</h2>
+        <p className="text-sm text-muted-foreground">
+          Balances &amp; monthly activity{activeMonth ? ` · ${formatMonthLong(activeMonth)}` : ''}
+        </p>
       </div>
 
       {anyError && (
@@ -144,10 +88,8 @@ export function CreditCardsPage() {
             <EmptyMedia variant="icon">
               <CreditCard />
             </EmptyMedia>
-            <EmptyTitle>No credit card data for this month</EmptyTitle>
-            <EmptyDescription>
-              gold.credit_card_monthly has no rows for {activeMonth ? formatMonthLong(activeMonth) : 'this month'}.
-            </EmptyDescription>
+            <EmptyTitle>No credit card data</EmptyTitle>
+            <EmptyDescription>gold.credit_card_monthly has no rows yet.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       )}
@@ -156,8 +98,8 @@ export function CreditCardsPage() {
         <>
           <BalanceHero cards={cards} totals={totals} />
           <CardWallet cards={cards} />
-          <PaymentsSection cards={cards} payments={payments} />
           <ActivityTable cards={cards} month={activeMonth} />
+          <PaymentsSection cards={cards} payments={payments} />
         </>
       )}
     </div>

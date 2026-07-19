@@ -241,16 +241,21 @@ used to live here was removed when Tab 3 shipped (budget detail is now owned by 
 ---
 
 #### Tab 2 — Credit Cards — ✅ BUILT
-**Queries**: `credit_card_monthly` (per-month, param `month`) + `card_payments` (recent payments from
-`silver.transactions`, `category = 'Credit Card'` + `amount > 0` on the 3 card accounts) + `credit_card_months`
-(distinct months for the selector). Files: `app/client/src/pages/creditcards/` (`CreditCardsPage`,
-`BalanceHero`, `CardWallet`, `PaymentsSection`, `ActivityTable`, `NetChip`, `cards.ts`, `types.ts`).
+**Queries**: `credit_card_monthly` (no params — returns the latest month via `WHERE month = (SELECT MAX(month) …)`)
++ `card_payments` (recent payments from `silver.transactions`, `category = 'Credit Card'` + `amount > 0` on
+the 3 card accounts). Files: `app/client/src/pages/creditcards/` (`CreditCardsPage`, `BalanceHero`,
+`CardWallet`, `PaymentsSection`, `ActivityTable`, `NetChip`, `cards.ts`, `types.ts`).
 
-Built with: header + month selector (no Groups slicer on this tab); a **Total Balance hero** (aggregate
+This tab is **point-in-time** (balances are the latest snapshot; activity is the current month), so it has
+**no month selector and no Groups slicer** — it always shows the latest month, and the month label is derived
+from the returned rows (`cards[0].month`).
+
+Built with: a **Total Balance hero** (aggregate
 balance, net-movement chip, by-card split bar, charges/payments/net for the month); a **card wallet** of 3
-issuer-colored card faces (balance, `balance_as_of`, charges + net); a **Payments section** (per-card
-last-payment cards + a chronological recent-payments list from `card_payments`); and a **Monthly Activity
-table** (Card · Charges · Payments · Net Activity · Txns · Balance).
+issuer-colored card faces (balance, `balance_as_of`, charges + net); a **Monthly Activity table** (Card ·
+Charges · Payments · Net Activity · Txns · Balance); and a **Payments section** (per-card last-payment cards
++ a chronological recent-payments list from `card_payments`). Page order: hero → wallet → activity table →
+payments.
 
 **Net direction semantics:** `net_activity = charges − payments_received`; **negative (paid down) is good →
 `--success`; positive (balance grew) → `--destructive`** (see `NetChip`/`netIsGood`). Card identity colors

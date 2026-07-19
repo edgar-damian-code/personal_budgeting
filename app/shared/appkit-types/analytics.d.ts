@@ -64,10 +64,7 @@ declare module "@databricks/appkit-ui/react" {
       };
     credit_card_monthly: {
         name: "credit_card_monthly";
-        parameters: {
-          /** DATE - use sql.date() */
-          month: SQLDateMarker;
-        };
+        parameters: Record<string, never>;
         result: Array<{
           /** @sqlType DATE */
           month: string;
@@ -89,14 +86,6 @@ declare module "@databricks/appkit-ui/react" {
           current_balance: number;
           /** @sqlType DATE */
           balance_as_of: string;
-        }>;
-      };
-    credit_card_months: {
-        name: "credit_card_months";
-        parameters: Record<string, never>;
-        result: Array<{
-          /** @sqlType DATE */
-          month: string;
         }>;
       };
     monthly_cashflow: {

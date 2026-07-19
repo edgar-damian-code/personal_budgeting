@@ -26,5 +26,3 @@ export type CardPaymentRow = {
   institution: string;
   amount: number | string;
 };
-
-export type CreditCardMonthRow = { month: string };
