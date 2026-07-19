@@ -30,7 +30,6 @@ import { formatCurrency, formatMonthLong, formatMonthShort, formatMonthOnly, cur
 import { GroupsSlicer } from './GroupsSlicer';
 import { HeroBanner } from './HeroBanner';
 import { MomBreakdownTable } from './MomBreakdownTable';
-import { BudgetBreakdownTable } from './BudgetBreakdownTable';
 import type { BudgetVsActualRow, CashflowMonth, CategoryMonth, MonthlyCashflowRow } from './types';
 
 type KpiCardDef = {
@@ -159,15 +158,12 @@ export function CashFlowPage() {
   }, [sortedRows]);
 
   const budgetParams = useMemo(() => ({ budget_month: sql.date(activeMonth ?? '1970-01-01') }), [activeMonth]);
-  const { data: budgetData, loading: budgetLoading, error: budgetError } = useAnalyticsQuery(
-    'budget_vs_actual',
-    budgetParams,
-  );
+  const { data: budgetData } = useAnalyticsQuery('budget_vs_actual', budgetParams);
 
   // Union of both sources: monthly_cashflow is scoped to checking-account activity, so
   // groups with no direct checking transaction (e.g. Travel — paid by card, never
   // hitting checking directly) would otherwise never appear as a slicer option even
-  // though they have real rows in the Budget vs Actual table below.
+  // though they have real rows in the Budget vs Actual table (now its own tab).
   const availableGroups = useMemo(() => {
     const fromCashflow = rawRows.map((r) => r.group);
     const fromBudget = ((budgetData ?? []) as BudgetVsActualRow[]).map((r) => r.group);
@@ -332,14 +328,6 @@ export function CashFlowPage() {
             categoryMonthly={categoryMonthly}
             activeMonth={activeRow.month}
             previousMonth={previousRow?.month ?? null}
-          />
-
-          <BudgetBreakdownTable
-            data={budgetData as BudgetVsActualRow[] | null}
-            loading={budgetLoading}
-            error={budgetError}
-            activeMonth={activeRow.month}
-            excludedGroups={excludedGroups}
           />
         </>
       )}

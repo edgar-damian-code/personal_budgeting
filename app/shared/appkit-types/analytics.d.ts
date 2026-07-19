@@ -5,6 +5,14 @@ import type { SQLTypeMarker, SQLStringMarker, SQLNumberMarker, SQLBooleanMarker,
 
 declare module "@databricks/appkit-ui/react" {
   interface QueryRegistry {
+    budget_months: {
+        name: "budget_months";
+        parameters: Record<string, never>;
+        result: Array<{
+          /** @sqlType DATE */
+          budget_month: string;
+        }>;
+      };
     budget_vs_actual: {
         name: "budget_vs_actual";
         parameters: {

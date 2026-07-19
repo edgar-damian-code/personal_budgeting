@@ -10,6 +10,7 @@ import {
 } from '@databricks/appkit-ui/react';
 import { Menu } from 'lucide-react';
 import { CashFlowPage } from './pages/cashflow/CashFlowPage';
+import { BudgetPage } from './pages/budget/BudgetPage';
 import { ComingSoonPage } from './pages/ComingSoonPage';
 import { ThemeToggle } from './components/ThemeToggle';
 
@@ -91,7 +92,7 @@ const router = createBrowserRouter([
     children: [
       { path: '/', element: <CashFlowPage /> },
       { path: '/credit-cards', element: <ComingSoonPage title="Credit Cards" /> },
-      { path: '/budget', element: <ComingSoonPage title="Budget vs Actual" /> },
+      { path: '/budget', element: <BudgetPage /> },
       { path: '/spend', element: <ComingSoonPage title="Spend Analysis" /> },
     ],
   },

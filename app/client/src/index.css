@@ -38,6 +38,16 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.705 0.015 286.067); */
+
+  /* Category-group identity palette (Budget tab donut + group dots). Fixed per group so
+     the color reads as the group's identity — not a status — and stays consistent across
+     light/dark (the shadcn --chart-* tokens shift hue between themes, so they can't).
+     Values match the design mockup. */
+  --group-living: #4ecb8f;        /* green */
+  --group-financial: #6aa6e8;     /* blue */
+  --group-discretionary: #e8b54a; /* amber */
+  --group-travel: #f4796b;        /* coral / red */
+  --group-other: #9aa3ad;         /* grey */
 }
 
 @media (prefers-color-scheme: dark) {
