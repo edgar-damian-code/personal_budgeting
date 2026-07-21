@@ -59,7 +59,9 @@ export function TransactionLedger({ rows }: { rows: SpendTransactionRow[] }) {
             {day.rows.map((t) => (
               <div
                 key={t.transaction_id}
-                className="grid grid-cols-[minmax(0,2fr)_1fr_1.2fr_auto] items-center gap-4 border-t px-6 py-3"
+                // Fixed widths on the middle/amount columns so every (independently-gridded)
+                // row aligns — an `auto`/`fr` amount column varies with the number's length.
+                className="grid grid-cols-[minmax(0,1fr)_10rem_12rem_7rem] items-center gap-4 border-t px-6 py-3"
               >
                 <div className="flex min-w-0 items-center gap-2.5">
                   <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: accountColor(t.account_num) }} />

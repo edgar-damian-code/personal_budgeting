@@ -118,6 +118,22 @@ declare module "@databricks/appkit-ui/react" {
           outflow_count: number;
         }>;
       };
+    spend_monthly: {
+        name: "spend_monthly";
+        parameters: Record<string, never>;
+        result: Array<{
+          /** @sqlType DATE */
+          month: string;
+          /** @sqlType STRING */
+          category: string;
+          /** @sqlType STRING */
+          group: string;
+          /** @sqlType STRING */
+          account_num: string;
+          /** @sqlType DECIMAL(20,2) */
+          spend: number;
+        }>;
+      };
     spend_transactions: {
         name: "spend_transactions";
         parameters: {

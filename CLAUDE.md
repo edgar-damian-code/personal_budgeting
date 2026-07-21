@@ -254,11 +254,23 @@ databricks apps init --name personal-budgeting --features analytics
 #### Tab 1 — Cash Flow (default/landing tab) — ✅ BUILT
 **Query**: `monthly_cashflow` (`config/queries/monthly_cashflow.sql`, joins `gold.monthly_cashflow` ×
 `silver.categories` to bring in `type`). Files: `app/client/src/pages/cashflow/`.
+**Excludes internal transfers** in/out of the 1871 checking account (`WHERE COALESCE(c.type,'') <> 'Transfer'
+OR category = 'Credit Card'`) — the generic `Transfer` category carried ~$200k of transfers-in that inflated
+Income and net cash flow. `Credit Card` payments are kept (type=Transfer, but real cash out → own KPI card).
+NOTE: the deployed `gold.monthly_cashflow` is per month+group+category (has `group`/`category` columns); the
+repo notebook `nb_gold__transform_tiller.sql` is an older month-level version and is out of date vs deployed.
 
-Built with: page-wide **Groups slicer** + year>month selector; a **HeroBanner** (net cash flow,
+Built with: a page-wide **Group → Category hierarchy slicer** (`components/GroupCategorySlicer`, shared with
+the Budget tab — expandable groups with a group checkbox that toggles all its categories, plus per-category
+checkboxes; single source of truth is `excludedCategories`, group state is derived
+checked/indeterminate/unchecked; tree via `buildGroupTree` in `lib/groupColors.ts`) + year>month selector; a
+**HeroBanner** (net cash flow,
 income/outflow split, YTD outflows, savings rate); the 4 KPI cards with MoM deltas; the income-vs-outflows
-trend bar chart; and a **MomBreakdownTable** (Last Mo · This Mo · Δ MoM). The redundant budget table that
-used to live here was removed when Tab 3 shipped (budget detail is now owned by the Budget tab).
+trend bar chart; and a **MomBreakdownTable** (Outflow Breakdown: Last Mo · This Mo · Δ MoM). The breakdown
+includes Expense categories **plus the `Credit Card` payment** so it reconciles with the KPI cards + bar
+chart, whose Total Outflows = fixed + CC payments + variable (Income and other transfers stay excluded).
+The redundant budget table that used to live here was removed when Tab 3 shipped (budget detail is now owned
+by the Budget tab).
 
 ---
 
@@ -292,7 +304,8 @@ vibrant fill, theme-independent.
 the selector — added this session because the budget table's coverage differs from cashflow's history).
 Files: `app/client/src/pages/budget/` (`BudgetPage`, `BudgetHealthHero`, `GroupSummaryCards`, `aggregate.ts`).
 
-Built with: page-wide Groups slicer + year>month selector; a **budget-health hero** (SVG donut of actual
+Built with: the shared page-wide **Group → Category hierarchy slicer** (`components/GroupCategorySlicer`,
+also used by Cash Flow; filters by `excludedCategories`) + year>month selector; a **budget-health hero** (SVG donut of actual
 segmented by group, % of budget in the center colored by status, + 4 callouts: biggest overage, biggest
 saving, over-budget count, YTD actual); **5 group roll-up cards** (zero-spend group → dimmed "No spend this
 month"); and the **`BudgetBreakdownTable`** (reused from cashflow — Category · Group · Budget · Actual · YTD ·
@@ -306,18 +319,28 @@ light and dark and so can't stay consistent with the design mockup.
 ---
 
 #### Tab 4 — Spend Analysis — ✅ BUILT
-**Query**: `spend_transactions` (params `start_date`, `end_date`) — the only tab that queries
-`silver.transactions` directly (flexible filtering can't be pre-aggregated). Files:
-`app/client/src/pages/spend/` (`SpendAnalysisPage`, `DateRangePicker`, `FilterRail`, `SummaryStrip`,
-`SpendByCategoryChart`, `TopMerchants`, `TransactionLedger`, `aggregate.ts`, `dateRange.ts`, `types.ts`).
+**Queries**: `spend_transactions` (params `start_date`, `end_date` — the range-driven rows) + `spend_monthly`
+(no params, fixed trailing-12-month aggregate for the Monthly Spend chart). The only tab that queries
+`silver.transactions` directly. Files: `app/client/src/pages/spend/` (`SpendAnalysisPage`, `DateRangePicker`,
+`FilterRail`, `SummaryStrip`, `MonthlySpendChart`, `SpendByCategoryChart`, `TopMerchants`, `TransactionLedger`,
+`aggregate.ts`, `dateRange.ts`, `types.ts`).
 
 Built with: header + **date-range picker** (Calendar-in-Popover with quick presets; default month-to-date,
 drives the query params → re-fetch); a **collapsible filter rail** (Group / Category / Account checklists,
 client-side over the fetched rows, default all-checked); a **summary strip** (Total Spend, Transactions,
-Avg/Day, Top Category); a **Spend-by-Category chart** (horizontal bars, category/group `groupBy` toggle,
-client-side); a **Top Merchants** table (top 6 by description, share bar, MoM vs the prior equal-length
-period via a second `spend_transactions` query for the prior window); and a day-grouped **Transaction Ledger**
-(capped at 300 rows, keyed by `transaction_id`).
+Avg/Day, Top Category); a **Monthly Spend chart** (L12M stacked vertical bars, total label per bar, top-6
+series + grey "Other", legend); a **Spend-by-Category chart** (horizontal bars, category/group `groupBy`
+toggle, client-side); a **Top Merchants** table (top 6 by description, share bar, MoM vs the prior
+equal-length period via a second `spend_transactions` query for the prior window); and a day-grouped
+**Transaction Ledger** (capped at 300 rows, keyed by `transaction_id`).
+
+The Monthly and Spend-by-Category charts **share one `breakdown` state** (category ↔ group) — either
+dropdown flips both. The Monthly chart uses a **fixed trailing-12-month window** (not the date picker) but
+**does honor the rail filters** (group/category/account) — `spend_monthly` carries `account_num` so all three
+exclusions apply client-side (`filteredMonthlyRows`). Category-mode stacks use a rotating palette
+(`MonthlySpendChart` `CAT_PALETTE`), group-mode uses the shared group colors, overflow beyond the top 6 →
+"Other" (`#3a4048`). Each rail section (Group/Category/Account) has a tri-state **Select all / Clear** header
+(via `useToggleSet`'s `setMany`), plus the global **Reset**.
 
 **⚠️ `hide_from_reports` is on `silver.categories`, NOT `silver.transactions`** — the query LEFT JOINs
 categories to respect the flag (`c.hide_from_reports = false OR IS NULL`). Expenses only: `amount < 0` and

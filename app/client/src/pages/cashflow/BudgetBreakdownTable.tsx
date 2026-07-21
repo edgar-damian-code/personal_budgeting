@@ -57,13 +57,13 @@ export function BudgetBreakdownTable({
   loading,
   error,
   activeMonth,
-  excludedGroups,
+  excludedCategories,
 }: {
   data: BudgetVsActualRow[] | null;
   loading: boolean;
   error: string | null;
   activeMonth: string;
-  excludedGroups: Set<string>;
+  excludedCategories: Set<string>;
 }) {
   const [filter, setFilter] = useState('');
   const [sortKey, setSortKey] = useState<BudgetSortKey>('actual');
@@ -83,7 +83,7 @@ export function BudgetBreakdownTable({
     const built = raw
       .filter((r) => String(r.hide_from_reports) !== 'true')
       .filter((r) => Number(r.actual_amount) !== 0)
-      .filter((r) => !excludedGroups.has(r.group))
+      .filter((r) => !excludedCategories.has(r.category))
       .filter((r) => r.category.toLowerCase().includes(filter.trim().toLowerCase()))
       .map(
         (r): BudgetRow => ({
@@ -104,7 +104,7 @@ export function BudgetBreakdownTable({
       else cmp = a[sortKey] - b[sortKey];
       return sortDir === 'asc' ? cmp : -cmp;
     });
-  }, [data, excludedGroups, filter, sortKey, sortDir]);
+  }, [data, excludedCategories, filter, sortKey, sortDir]);
 
   return (
     <Card>

@@ -22,3 +22,19 @@ export function groupRank(group: string): number {
   const i = (GROUP_ORDER as readonly string[]).indexOf(group);
   return i === -1 ? GROUP_ORDER.length : i;
 }
+
+// A group and its categories — the shape the Group → Category hierarchy slicer consumes.
+export type GroupNode = { group: string; categories: string[] };
+
+// Build the group → category tree from any rows carrying `group` + `category`. Groups are
+// ordered by the canonical rank (Income/Transfer fall last); categories alphabetical.
+export function buildGroupTree(rows: { group: string; category: string }[]): GroupNode[] {
+  const map = new Map<string, Set<string>>();
+  for (const r of rows) {
+    if (!map.has(r.group)) map.set(r.group, new Set());
+    map.get(r.group)!.add(r.category);
+  }
+  return [...map.entries()]
+    .map(([group, cats]) => ({ group, categories: [...cats].sort((a, b) => a.localeCompare(b)) }))
+    .sort((a, b) => groupRank(a.group) - groupRank(b.group) || a.group.localeCompare(b.group));
+}

@@ -16,12 +16,13 @@ import {
 import { DateRangePicker } from './DateRangePicker';
 import { FilterRail } from './FilterRail';
 import { SummaryStrip } from './SummaryStrip';
-import { SpendByCategoryChart, type Breakdown } from './SpendByCategoryChart';
+import { MonthlySpendChart } from './MonthlySpendChart';
+import { SpendByCategoryChart } from './SpendByCategoryChart';
 import { TopMerchants } from './TopMerchants';
 import { TransactionLedger } from './TransactionLedger';
 import { distinctAccounts, distinctCategories, distinctGroups } from './aggregate';
 import { currentMonthToDate, priorRange } from './dateRange';
-import type { IsoRange, SpendTransactionRow } from './types';
+import type { Breakdown, IsoRange, SpendMonthlyRow, SpendTransactionRow } from './types';
 
 function useToggleSet() {
   const [set, setSet] = useState<Set<string>>(new Set());
@@ -32,8 +33,18 @@ function useToggleSet() {
       else next.add(key);
       return next;
     });
+  // Bulk include/exclude — powers the per-section "Select all" / "Clear".
+  const setMany = (keys: string[], exclude: boolean) =>
+    setSet((prev) => {
+      const next = new Set(prev);
+      for (const k of keys) {
+        if (exclude) next.add(k);
+        else next.delete(k);
+      }
+      return next;
+    });
   const reset = () => setSet(new Set());
-  return [set, toggle, reset] as const;
+  return [set, toggle, reset, setMany] as const;
 }
 
 export function SpendAnalysisPage() {
@@ -41,9 +52,9 @@ export function SpendAnalysisPage() {
   const [railOpen, setRailOpen] = useState(true);
   const [breakdown, setBreakdown] = useState<Breakdown>('category');
 
-  const [excludedGroups, toggleGroup, resetGroups] = useToggleSet();
-  const [excludedCategories, toggleCategory, resetCategories] = useToggleSet();
-  const [excludedAccounts, toggleAccount, resetAccounts] = useToggleSet();
+  const [excludedGroups, toggleGroup, resetGroups, setGroups] = useToggleSet();
+  const [excludedCategories, toggleCategory, resetCategories, setCategories] = useToggleSet();
+  const [excludedAccounts, toggleAccount, resetAccounts, setAccounts] = useToggleSet();
 
   const currentParams = useMemo(
     () => ({ start_date: sql.date(range.start), end_date: sql.date(range.end) }),
@@ -59,6 +70,12 @@ export function SpendAnalysisPage() {
   }, [range]);
   const { data: priorData } = useAnalyticsQuery('spend_transactions', priorParams);
   const priorRows = useMemo(() => (priorData ?? []) as SpendTransactionRow[], [priorData]);
+
+  // Monthly Spend chart: its own fixed trailing-12-month window (independent of the date
+  // picker) but it DOES honor the client-side rail filters below.
+  const noParams = useMemo(() => ({}), []);
+  const { data: monthlyData } = useAnalyticsQuery('spend_monthly', noParams);
+  const monthlyRows = useMemo(() => (monthlyData ?? []) as SpendMonthlyRow[], [monthlyData]);
 
   const groups = useMemo(() => distinctGroups(rows), [rows]);
   const categories = useMemo(() => distinctCategories(rows), [rows]);
@@ -85,6 +102,16 @@ export function SpendAnalysisPage() {
           !excludedAccounts.has(r.account_num),
       ),
     [priorRows, excludedGroups, excludedCategories, excludedAccounts],
+  );
+  const filteredMonthlyRows = useMemo(
+    () =>
+      monthlyRows.filter(
+        (r) =>
+          !excludedGroups.has(r.group) &&
+          !excludedCategories.has(r.category) &&
+          !excludedAccounts.has(r.account_num),
+      ),
+    [monthlyRows, excludedGroups, excludedCategories, excludedAccounts],
   );
 
   const activeFilterCount = excludedGroups.size + excludedCategories.size + excludedAccounts.size;
@@ -126,6 +153,9 @@ export function SpendAnalysisPage() {
             onToggleGroup={toggleGroup}
             onToggleCategory={toggleCategory}
             onToggleAccount={toggleAccount}
+            onToggleAllGroups={setGroups}
+            onToggleAllCategories={setCategories}
+            onToggleAllAccounts={setAccounts}
             onReset={resetAll}
             activeFilterCount={activeFilterCount}
           />
@@ -152,6 +182,7 @@ export function SpendAnalysisPage() {
             ) : (
               <>
                 <SummaryStrip rows={filteredRows} range={range} />
+                <MonthlySpendChart rows={filteredMonthlyRows} breakdown={breakdown} onBreakdownChange={setBreakdown} />
                 <SpendByCategoryChart rows={filteredRows} breakdown={breakdown} onBreakdownChange={setBreakdown} />
                 <TopMerchants rows={filteredRows} priorRows={filteredPriorRows} />
                 <TransactionLedger rows={filteredRows} />

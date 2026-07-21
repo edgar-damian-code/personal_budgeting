@@ -11,17 +11,34 @@ function Section({
   options,
   excluded,
   onToggle,
+  onToggleAll,
 }: {
   title: string;
   options: Option[];
   excluded: Set<string>;
   onToggle: (key: string) => void;
+  onToggleAll: (keys: string[], exclude: boolean) => void;
 }) {
   if (options.length === 0) return null;
+  const keys = options.map((o) => o.key);
+  const excludedCount = keys.filter((k) => excluded.has(k)).length;
+  const allExcluded = excludedCount === keys.length;
+  const allSelected = excludedCount === 0;
+  // Tri-state header = Select all / Clear. Clicking with anything excluded selects all;
+  // clicking when everything is selected clears the whole section.
+  const headerState = allSelected ? true : allExcluded ? false : 'indeterminate';
   return (
     <div className="mb-5">
-      <div className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">{title}</div>
-      <div className="space-y-1.5">
+      <label className="mb-2 flex cursor-pointer items-center gap-2.5">
+        <Checkbox
+          checked={headerState}
+          onCheckedChange={() => onToggleAll(keys, allSelected)}
+          aria-label={`Select all ${title}`}
+        />
+        <span className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">{title}</span>
+        <span className="text-success ml-auto text-[11px] font-medium">{allSelected ? 'Clear' : 'Select all'}</span>
+      </label>
+      <div className="space-y-1.5 pl-6">
         {options.map((o) => {
           const id = `${title}-${o.key}`;
           return (
@@ -50,6 +67,9 @@ export function FilterRail({
   onToggleGroup,
   onToggleCategory,
   onToggleAccount,
+  onToggleAllGroups,
+  onToggleAllCategories,
+  onToggleAllAccounts,
   onReset,
   activeFilterCount,
 }: {
@@ -65,6 +85,9 @@ export function FilterRail({
   onToggleGroup: (g: string) => void;
   onToggleCategory: (c: string) => void;
   onToggleAccount: (a: string) => void;
+  onToggleAllGroups: (keys: string[], exclude: boolean) => void;
+  onToggleAllCategories: (keys: string[], exclude: boolean) => void;
+  onToggleAllAccounts: (keys: string[], exclude: boolean) => void;
   onReset: () => void;
   activeFilterCount: number;
 }) {
@@ -114,18 +137,21 @@ export function FilterRail({
         options={groups.map((g) => ({ key: g, label: g, dotColor: groupColor(g) }))}
         excluded={excludedGroups}
         onToggle={onToggleGroup}
+        onToggleAll={onToggleAllGroups}
       />
       <Section
         title="Category"
         options={categories.map((c) => ({ key: c, label: c }))}
         excluded={excludedCategories}
         onToggle={onToggleCategory}
+        onToggleAll={onToggleAllCategories}
       />
       <Section
         title="Account"
         options={accounts}
         excluded={excludedAccounts}
         onToggle={onToggleAccount}
+        onToggleAll={onToggleAllAccounts}
       />
     </div>
   );

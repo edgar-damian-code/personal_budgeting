@@ -65,13 +65,13 @@ export type BudgetSummary = {
 
 // Aggregate one month of budget_vs_actual rows into page-level totals + per-group
 // roll-ups. Applies the same visibility rules everywhere (hide_from_reports and the
-// page-wide Groups slicer) so the hero, donut, group cards, and table all agree.
+// page-wide Group → Category slicer) so the hero, donut, group cards, and table all agree.
 // Rows with no budget AND no spend are dropped as noise — they'd only inflate counts.
-export function summarizeBudget(rows: BudgetVsActualRow[], excludedGroups: Set<string>): BudgetSummary {
+export function summarizeBudget(rows: BudgetVsActualRow[], excludedCategories: Set<string>): BudgetSummary {
   const visible = rows.filter(
     (r) =>
       String(r.hide_from_reports) !== 'true' &&
-      !excludedGroups.has(r.group) &&
+      !excludedCategories.has(r.category) &&
       (Number(r.budgeted_amount) > 0 || Number(r.actual_amount) !== 0),
   );
 
@@ -142,15 +142,4 @@ export function summarizeBudget(rows: BudgetVsActualRow[], excludedGroups: Set<s
     biggestSaving,
     groups,
   };
-}
-
-// Groups that appear in the data (before exclusion), ordered — feeds the Groups slicer
-// so excluded groups still show as re-selectable options.
-export function availableBudgetGroups(rows: BudgetVsActualRow[]): string[] {
-  const set = new Set<string>();
-  for (const r of rows) {
-    if (String(r.hide_from_reports) === 'true') continue;
-    set.add(r.group);
-  }
-  return [...set].sort((a, b) => groupRank(a) - groupRank(b));
 }

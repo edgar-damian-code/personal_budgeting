@@ -13,9 +13,7 @@ import {
 import { formatCurrency } from '../../lib/format';
 import { groupColor } from '../../lib/groupColors';
 import { bucketBy } from './aggregate';
-import type { SpendTransactionRow } from './types';
-
-export type Breakdown = 'category' | 'group';
+import type { Breakdown, SpendTransactionRow } from './types';
 
 const MAX_BARS = 15;
 

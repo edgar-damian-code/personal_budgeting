@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import { useAnalyticsQuery } from '@databricks/appkit-ui/react';
-import { sql } from '@databricks/appkit-ui/js';
 import {
   Card,
   CardContent,
@@ -27,10 +26,11 @@ import {
   EmptyDescription,
 } from '@databricks/appkit-ui/react';
 import { formatCurrency, formatMonthLong, formatMonthShort, formatMonthOnly, currentMonthStart } from '../../lib/format';
-import { GroupsSlicer } from './GroupsSlicer';
+import { buildGroupTree } from '../../lib/groupColors';
+import { GroupCategorySlicer } from '../../components/GroupCategorySlicer';
 import { HeroBanner } from './HeroBanner';
 import { MomBreakdownTable } from './MomBreakdownTable';
-import type { BudgetVsActualRow, CashflowMonth, CategoryMonth, MonthlyCashflowRow } from './types';
+import type { CashflowMonth, CategoryMonth, MonthlyCashflowRow } from './types';
 
 type KpiCardDef = {
   key: string;
@@ -52,20 +52,38 @@ export function CashFlowPage() {
   const { data, loading, error } = useAnalyticsQuery('monthly_cashflow', cashflowParams);
   const rawRows = useMemo(() => (data ?? []) as MonthlyCashflowRow[], [data]);
 
-  const [excludedGroups, setExcludedGroups] = useState<Set<string>>(new Set());
-  function toggleGroup(group: string) {
-    setExcludedGroups((prev) => {
+  // Single source of truth for the Group → Category hierarchy filter: excluded categories.
+  // A group is "excluded" when all its categories are; the slicer derives that.
+  const [excludedCategories, setExcludedCategories] = useState<Set<string>>(new Set());
+  function toggleCategory(category: string) {
+    setExcludedCategories((prev) => {
       const next = new Set(prev);
-      if (next.has(group)) next.delete(group);
-      else next.add(group);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
       return next;
     });
   }
+  function toggleGroup(categories: string[], exclude: boolean) {
+    setExcludedCategories((prev) => {
+      const next = new Set(prev);
+      for (const c of categories) {
+        if (exclude) next.add(c);
+        else next.delete(c);
+      }
+      return next;
+    });
+  }
+  function resetFilters() {
+    setExcludedCategories(new Set());
+  }
 
   const filteredRawRows = useMemo(
-    () => rawRows.filter((r) => !excludedGroups.has(r.group)),
-    [rawRows, excludedGroups],
+    () => rawRows.filter((r) => !excludedCategories.has(r.category)),
+    [rawRows, excludedCategories],
   );
+
+  // Group → Category tree for the slicer, built from the cashflow rows.
+  const groupTree = useMemo(() => buildGroupTree(rawRows), [rawRows]);
 
   // Re-aggregate month+group+category rows to month level for the cards/chart/hero banner.
   const sortedRows = useMemo<CashflowMonth[]>(() => {
@@ -95,13 +113,14 @@ export function CashFlowPage() {
     return [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month));
   }, [filteredRawRows]);
 
-  // Re-aggregate to month+category for the MoM breakdown table. Expense-type only — the
-  // table is specifically an *outflow* breakdown, so Income and Transfer categories
-  // (e.g. "Credit Card" payments, which are internal moves, not spend) don't belong here.
+  // Re-aggregate to month+category for the MoM breakdown table. Include Expense categories
+  // PLUS the "Credit Card" payment (type=Transfer, but a real cash outflow from checking) so
+  // the breakdown reconciles with the KPI cards and bar chart, whose Total Outflows =
+  // fixed + CC payments + variable. Income and other transfers are still excluded.
   const categoryMonthly = useMemo<CategoryMonth[]>(() => {
     const byKey = new Map<string, CategoryMonth>();
     for (const r of filteredRawRows) {
-      if (r.type !== 'Expense') continue;
+      if (r.type !== 'Expense' && r.category !== 'Credit Card') continue;
       const key = `${r.category}|${r.month}`;
       const existing = byKey.get(key) ?? { category: r.category, group: r.group, month: r.month, outflows: 0 };
       existing.outflows += Number(r.outflows);
@@ -157,19 +176,6 @@ export function CashFlowPage() {
       .map(([year, rows]) => [year, [...rows].reverse()] as const);
   }, [sortedRows]);
 
-  const budgetParams = useMemo(() => ({ budget_month: sql.date(activeMonth ?? '1970-01-01') }), [activeMonth]);
-  const { data: budgetData } = useAnalyticsQuery('budget_vs_actual', budgetParams);
-
-  // Union of both sources: monthly_cashflow is scoped to checking-account activity, so
-  // groups with no direct checking transaction (e.g. Travel — paid by card, never
-  // hitting checking directly) would otherwise never appear as a slicer option even
-  // though they have real rows in the Budget vs Actual table (now its own tab).
-  const availableGroups = useMemo(() => {
-    const fromCashflow = rawRows.map((r) => r.group);
-    const fromBudget = ((budgetData ?? []) as BudgetVsActualRow[]).map((r) => r.group);
-    return [...new Set([...fromCashflow, ...fromBudget])].sort();
-  }, [rawRows, budgetData]);
-
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -182,8 +188,14 @@ export function CashFlowPage() {
           )}
         </div>
         <div className="flex flex-wrap items-start gap-3">
-          {availableGroups.length > 0 && (
-            <GroupsSlicer groups={availableGroups} excluded={excludedGroups} onToggle={toggleGroup} />
+          {groupTree.length > 0 && (
+            <GroupCategorySlicer
+              tree={groupTree}
+              excludedCategories={excludedCategories}
+              onToggleCategory={toggleCategory}
+              onToggleGroup={toggleGroup}
+              onReset={resetFilters}
+            />
           )}
           {sortedRows.length > 0 && (
             <Select value={activeMonth ?? undefined} onValueChange={setSelectedMonth}>
@@ -235,10 +247,10 @@ export function CashFlowPage() {
             <EmptyMedia variant="icon">
               <Wallet />
             </EmptyMedia>
-            <EmptyTitle>No cash flow data{excludedGroups.size > 0 ? ' for this filter' : ' yet'}</EmptyTitle>
+            <EmptyTitle>No cash flow data{excludedCategories.size > 0 ? ' for this filter' : ' yet'}</EmptyTitle>
             <EmptyDescription>
-              {excludedGroups.size > 0
-                ? 'Every group is excluded, or the remaining groups have no activity. Adjust the Groups filter.'
+              {excludedCategories.size > 0
+                ? 'Everything is excluded, or the remaining categories have no activity. Adjust the Groups filter.'
                 : 'gold.monthly_cashflow has no rows. Check that the daily ELT job has run.'}
             </EmptyDescription>
           </EmptyHeader>

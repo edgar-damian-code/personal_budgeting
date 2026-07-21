@@ -21,10 +21,11 @@ import {
   Skeleton,
 } from '@databricks/appkit-ui/react';
 import { formatMonthLong, formatMonthOnly, currentMonthStart } from '../../lib/format';
-import { GroupsSlicer } from '../cashflow/GroupsSlicer';
+import { buildGroupTree } from '../../lib/groupColors';
+import { GroupCategorySlicer } from '../../components/GroupCategorySlicer';
 import { BudgetBreakdownTable } from '../cashflow/BudgetBreakdownTable';
 import type { BudgetVsActualRow } from '../cashflow/types';
-import { availableBudgetGroups, summarizeBudget } from './aggregate';
+import { summarizeBudget } from './aggregate';
 import { BudgetHealthHero } from './BudgetHealthHero';
 import { GroupSummaryCards } from './GroupSummaryCards';
 
@@ -53,14 +54,28 @@ export function BudgetPage() {
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const activeMonth = selectedMonth ?? defaultMonth;
 
-  const [excludedGroups, setExcludedGroups] = useState<Set<string>>(new Set());
-  function toggleGroup(group: string) {
-    setExcludedGroups((prev) => {
+  // Single source of truth for the Group → Category hierarchy filter: excluded categories.
+  const [excludedCategories, setExcludedCategories] = useState<Set<string>>(new Set());
+  function toggleCategory(category: string) {
+    setExcludedCategories((prev) => {
       const next = new Set(prev);
-      if (next.has(group)) next.delete(group);
-      else next.add(group);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
       return next;
     });
+  }
+  function toggleGroup(categories: string[], exclude: boolean) {
+    setExcludedCategories((prev) => {
+      const next = new Set(prev);
+      for (const c of categories) {
+        if (exclude) next.add(c);
+        else next.delete(c);
+      }
+      return next;
+    });
+  }
+  function resetFilters() {
+    setExcludedCategories(new Set());
   }
 
   const budgetParams = useMemo(() => ({ budget_month: sql.date(activeMonth ?? '1970-01-01') }), [activeMonth]);
@@ -71,8 +86,19 @@ export function BudgetPage() {
 
   const budgetRows = useMemo(() => (budgetData ?? []) as BudgetVsActualRow[], [budgetData]);
 
-  const availableGroups = useMemo(() => availableBudgetGroups(budgetRows), [budgetRows]);
-  const summary = useMemo(() => summarizeBudget(budgetRows, excludedGroups), [budgetRows, excludedGroups]);
+  // Slicer tree from the month's visible budget categories (non-hidden, budgeted or spent).
+  const groupTree = useMemo(
+    () =>
+      buildGroupTree(
+        budgetRows.filter(
+          (r) =>
+            String(r.hide_from_reports) !== 'true' &&
+            (Number(r.budgeted_amount) > 0 || Number(r.actual_amount) !== 0),
+        ),
+      ),
+    [budgetRows],
+  );
+  const summary = useMemo(() => summarizeBudget(budgetRows, excludedCategories), [budgetRows, excludedCategories]);
 
   // Group months by year so the selector reads as a year > month picker (matches the
   // Cash Flow tab), even though budget data is a single year today.
@@ -100,8 +126,14 @@ export function BudgetPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-start gap-3">
-          {availableGroups.length > 0 && (
-            <GroupsSlicer groups={availableGroups} excluded={excludedGroups} onToggle={toggleGroup} />
+          {groupTree.length > 0 && (
+            <GroupCategorySlicer
+              tree={groupTree}
+              excludedCategories={excludedCategories}
+              onToggleCategory={toggleCategory}
+              onToggleGroup={toggleGroup}
+              onReset={resetFilters}
+            />
           )}
           {months.length > 0 && (
             <Select value={activeMonth ?? undefined} onValueChange={setSelectedMonth}>
@@ -154,10 +186,10 @@ export function BudgetPage() {
             <EmptyMedia variant="icon">
               <PieChart />
             </EmptyMedia>
-            <EmptyTitle>No budget data{excludedGroups.size > 0 ? ' for this filter' : ' for this month'}</EmptyTitle>
+            <EmptyTitle>No budget data{excludedCategories.size > 0 ? ' for this filter' : ' for this month'}</EmptyTitle>
             <EmptyDescription>
-              {excludedGroups.size > 0
-                ? 'Every group is excluded, or the remaining groups have no budget or spend. Adjust the Groups filter.'
+              {excludedCategories.size > 0
+                ? 'Everything is excluded, or the remaining categories have no budget or spend. Adjust the Groups filter.'
                 : 'No budgeted categories or spend recorded for this month yet.'}
             </EmptyDescription>
           </EmptyHeader>
@@ -173,7 +205,7 @@ export function BudgetPage() {
             loading={budgetLoading}
             error={budgetError}
             activeMonth={activeMonth}
-            excludedGroups={excludedGroups}
+            excludedCategories={excludedCategories}
           />
         </>
       )}
