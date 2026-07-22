@@ -10,6 +10,7 @@ import {
 } from '@databricks/appkit-ui/react';
 import { Menu } from 'lucide-react';
 import { CashFlowPage } from './pages/cashflow/CashFlowPage';
+import { ForecastPage } from './pages/forecast/ForecastPage';
 import { BudgetPage } from './pages/budget/BudgetPage';
 import { CreditCardsPage } from './pages/creditcards/CreditCardsPage';
 import { SpendAnalysisPage } from './pages/spend/SpendAnalysisPage';
@@ -53,6 +54,7 @@ type NavLinkClassFn = (props: { isActive: boolean }) => string;
 
 const TABS = [
   { to: '/', label: 'Cash Flow', end: true },
+  { to: '/forecast', label: 'Forecast', end: false },
   { to: '/credit-cards', label: 'Credit Cards', end: false },
   { to: '/budget', label: 'Budget vs Actual', end: false },
   { to: '/spend', label: 'Spend Analysis', end: false },
@@ -117,6 +119,7 @@ const router = createBrowserRouter([
     element: <Layout />,
     children: [
       { path: '/', element: <CashFlowPage /> },
+      { path: '/forecast', element: <ForecastPage /> },
       { path: '/credit-cards', element: <CreditCardsPage /> },
       { path: '/budget', element: <BudgetPage /> },
       { path: '/spend', element: <SpendAnalysisPage /> },

@@ -22,9 +22,12 @@ export function BalanceHero({ cards, totals }: { cards: CreditCardMonthlyRow[]; 
   return (
     <Card
       className="border"
-      // Faint brand tint fading into the card surface (theme-aware via --card).
+      // Faint brand tint fading into the card surface (theme-aware via --card). Uses the
+      // Amex navy FACE: --card-prime is now a neutral warm grey, which washed out to
+      // nothing at 10%.
       style={{
-        background: 'linear-gradient(150deg, color-mix(in srgb, var(--card-prime) 10%, var(--card)), var(--card))',
+        background:
+          'linear-gradient(150deg, color-mix(in srgb, var(--card-aspire-face) 22%, var(--card)), var(--card))',
       }}
     >
       <CardContent className="flex flex-col gap-6 md:flex-row md:gap-0">

@@ -62,6 +62,16 @@ declare module "@databricks/appkit-ui/react" {
           amount: number;
         }>;
       };
+    checking_balance: {
+        name: "checking_balance";
+        parameters: Record<string, never>;
+        result: Array<{
+          /** @sqlType DECIMAL(12,2) */
+          current_balance: number;
+          /** @sqlType DATE */
+          balance_as_of: string;
+        }>;
+      };
     credit_card_monthly: {
         name: "credit_card_monthly";
         parameters: Record<string, never>;
@@ -86,6 +96,38 @@ declare module "@databricks/appkit-ui/react" {
           current_balance: number;
           /** @sqlType DATE */
           balance_as_of: string;
+        }>;
+      };
+    forecast_recurring: {
+        name: "forecast_recurring";
+        parameters: Record<string, never>;
+        result: Array<{
+          /** @sqlType STRING */
+          description: string;
+          /** @sqlType STRING */
+          category: string;
+          /** @sqlType STRING */
+          group: string;
+          /** @sqlType STRING */
+          direction: string;
+          /** @sqlType DOUBLE */
+          typical_amount: number;
+          /** @sqlType STRING */
+          cadence: string;
+          /** @sqlType INT */
+          day_of_month: number;
+          /** @sqlType DATE */
+          anchor_date: string;
+          /** @sqlType BIGINT */
+          occurrence_count: number;
+          /** @sqlType BIGINT */
+          months_present: number;
+          /** @sqlType DATE */
+          last_seen: string;
+          /** @sqlType DECIMAL(24,2) */
+          confidence: number;
+          /** @sqlType BOOLEAN */
+          is_overridden: boolean;
         }>;
       };
     monthly_cashflow: {

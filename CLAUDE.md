@@ -33,11 +33,13 @@ The AppKit app is scaffolded and **deployed** (RUNNING on Databricks Apps). Buil
 | Tab | Route | Status | Key files |
 |---|---|---|---|
 | 1. Cash Flow | `/` | ✅ Built | `app/client/src/pages/cashflow/` |
-| 2. Credit Cards | `/credit-cards` | ✅ Built | `app/client/src/pages/creditcards/` |
-| 3. Budget vs Actual | `/budget` | ✅ Built | `app/client/src/pages/budget/` |
-| 4. Spend Analysis | `/spend` | ✅ Built | `app/client/src/pages/spend/` |
+| 2. Forecast | `/forecast` | ✅ Built | `app/client/src/pages/forecast/` |
+| 3. Credit Cards | `/credit-cards` | ✅ Built | `app/client/src/pages/creditcards/` |
+| 4. Budget vs Actual | `/budget` | ✅ Built | `app/client/src/pages/budget/` |
+| 5. Spend Analysis | `/spend` | ✅ Built | `app/client/src/pages/spend/` |
 
-**All four tabs are built and deployed.** (`ComingSoonPage` is no longer routed anywhere.)
+**All five tabs are built.** (`ComingSoonPage` is no longer routed anywhere.)
+Nav order: Cash Flow · Forecast · Credit Cards · Budget vs Actual · Spend Analysis.
 
 ---
 
@@ -207,6 +209,47 @@ Budget side drives the join — zero-spend months appear with actual = 0.
 with `budgeted_amount = 0` (unbudgeted spend, e.g. Taxes/Hotels) → `pct_used` NULL and a large
 negative `variance`. This is expected and drives the "unbudgeted" case in the Budget tab.
 
+#### `gold.forecast_recurring`
+One row per **detected recurring** inflow/outflow on the 1871 checking account (~9 rows).
+Seeds the Forecast tab. Detection runs in gold — **never in the app**. This is deliberately
+NOT a copy of `silver.transactions`: it materializes the recurring *signals*, not the ledger.
+
+| Column | Type | Notes |
+|---|---|---|
+| description | string | Merchant/label, **aliased** (see below) |
+| category | string | |
+| group | string | Drives the ledger dot color |
+| direction | string | `'in'` or `'out'` — sign lives here |
+| typical_amount | decimal | **Positive magnitude** (median) |
+| cadence | string | `'monthly'` \| `'semimonthly'` \| `'biweekly'` |
+| day_of_month | int | monthly → median day; semimonthly → 15 (app also posts EOM); biweekly → NULL |
+| anchor_date | date | biweekly only — app steps +14 days; NULL otherwise |
+| is_overridden | boolean | TRUE when `schedule_overrides` forced the cadence |
+| occurrence_count, months_present, last_seen, confidence | | diagnostics |
+
+**Detection** = group by category+merchant over the last **6 completed** months, keep anything
+present in ≥3, median amount + median day-of-month, `typical_amount >= 20`.
+
+Three things that are easy to get wrong and are already handled — **read before editing this table**:
+
+1. **Merchant aliasing.** Tiller descriptions drift, which splits one stream into two
+   half-confidence rows. The `merchant` CASE block collapses known aliases:
+   `%Eisen%` → `Eisen Payroll` (payroll description changed mid-March 2026),
+   `Requested transfer from Ally%`, and `Evergy%` (its description **embeds the bill amount**,
+   so it would split the first month the bill changes). **Add a line here whenever a description drifts.**
+2. **biweekly vs semimonthly.** Average gap can't separate 14d from ~15.2d. Cadence is decided by
+   *where in the month* hits land: ≥80% on the 15th (14–16) or last day (≥28 or the 1st) → `semimonthly`,
+   else `biweekly`. The gap guard (≤18d) runs first, so monthly bills on the 26th–30th are unaffected.
+3. **Anchor freshness.** Detection stats use completed months only, but `anchor_date`/`last_seen` come
+   from the newest actual occurrence **including the current month** — a biweekly anchor from the last
+   completed month can be 7 weeks stale and every `+14` step inherits the error.
+
+**`schedule_overrides`** is the escape hatch for *forward-looking* schedule changes that history
+cannot predict. Currently: `Requested Transfer (Ally x4072)` biweekly → **semimonthly** (moving to
+the 15th + last day, confirmed 2026-07-21). **Remove an override once ~3 months of actuals exist
+under the new schedule** — detection then finds it on its own and a stale override starts fighting
+the data.
+
 ---
 
 ## Account reference
@@ -274,7 +317,53 @@ by the Budget tab).
 
 ---
 
-#### Tab 2 — Credit Cards — ✅ BUILT
+#### Tab 2 — Forecast — ✅ BUILT
+**Queries**: `forecast_recurring` + `checking_balance` (both no-param) + **reuses** `credit_card_monthly`
+for the per-card balances owed. Files: `app/client/src/pages/forecast/` (`ForecastPage`, `KpiStrip`,
+`BalanceChart`, `PaymentPlanner`, `ForecastLedger`, `MoneyInput`, `forecast.ts`, `recurring.ts`,
+`dates.ts`, `storage.ts`, `types.ts`).
+
+The app's **first forward-looking and first user-editable surface**. Projects the ··1871 checking
+balance **56 days / 8 weeks** from today. Layout top-to-bottom: header → KPI strip (4 tiles) →
+full-width daily balance chart → payment planner (3 cards) → week-grouped forecast ledger.
+
+Two architecture rules, both load-bearing:
+- **No writeback to Databricks.** All user input (planned CC payments, ledger edits, starting-balance
+  override) lives in `localStorage` under `hod.forecast.plan.v1`. The app stays read-only against Delta.
+- **The app does no recurrence detection.** It only expands `gold.forecast_recurring` rows into dated
+  events (`recurring.ts` → `expandRecurring`).
+
+**Engine** (`forecast.ts`): events = expanded recurring items **+** planned CC payments; sorted by day
+then income → outflow → CC within a day; one running balance feeds the KPIs, chart, and ledger so there
+is exactly **one** balance calculation on the page. `dailyBalances()` carries the closing balance through
+empty days; `computeWeeks()` carries it through empty weeks.
+
+**Seed vs edits**: `stored.items === null` means "track the live seed" — the ledger re-derives from the
+query on every gold refresh. **Any** ledger mutation materializes the array, so a nightly refresh can't
+silently rewrite the user's edits. **Restore auto-detected** sets it back to `null` (drops to the live
+seed) rather than snapshotting.
+
+**CC payments are read-only in the ledger** ("· in planner") — the planner is their single source of
+truth. Card balances/colors reuse `creditcards/cards.ts` (`cardShortName` / `cardInitials` were added
+there for the planner chips).
+
+**Ledger dot colors** follow the Spend ledger's per-**account** convention, NOT the group palette
+(`dotColor()` in `ForecastLedger.tsx`): outflows are `--card-checking` (the same Ally purple the Spend ledger
+uses for ··1871), each planned card payment carries its own `--card-*` token so it reads as the card it
+pays across every tab, and **inflows are `--success`** (direction outranks account identity on the rows
+holding the balance up — and their `group = 'Income'` has no `--group-*` token, so they'd otherwise fall
+back to the same grey as "Other").
+
+**Why "recurring only" is complete, not a gap** (confirmed by Edgar 2026-07-21): the ··1871 checking
+account carries **only recurring payments + credit-card payments**. All day-to-day variable spend
+(groceries, gas, restaurants) goes on the cards and reaches checking as the lump-sum CC payment, which
+the planner models explicitly. So `gold.forecast_recurring` + planned CC payments is a *full* picture of
+this account — the forecast is not systematically optimistic. Don't "fix" this by adding a variable-spend
+allowance; it would double-count the card spend.
+
+---
+
+#### Tab 3 — Credit Cards — ✅ BUILT
 **Queries**: `credit_card_monthly` (no params — returns the latest month via `WHERE month = (SELECT MAX(month) …)`)
 + `card_payments` (recent payments from `silver.transactions`, `category = 'Credit Card'` + `amount > 0` on
 the 3 card accounts). Files: `app/client/src/pages/creditcards/` (`CreditCardsPage`, `BalanceHero`,
@@ -292,14 +381,14 @@ Charges · Payments · Net Activity · Txns · Balance); and a **Payments sectio
 payments.
 
 **Net direction semantics:** `net_activity = charges − payments_received`; **negative (paid down) is good →
-`--success`; positive (balance grew) → `--destructive`** (see `NetChip`/`netIsGood`). Card identity colors
-are the `--card-*` tokens in `index.css` (Aspire=gold, Prime Visa=blue, Southwest=teal) — decorative, kept
-away from the success/destructive used for net direction. Card faces use dark ink (`--card-ink`) on the
-vibrant fill, theme-independent.
+`--success`; positive (balance grew) → `--destructive`** (see `NetChip`/`netIsGood`). Card identity uses the
+**real card brand colors** via the `--card-*` tokens — see the colors note under "Notes for Claude Code"
+for the face-vs-mark split and why Southwest's mark is blue. Kept away from success/destructive, which
+encode net direction. Card faces use white ink (`--card-ink`) on the dark brand fill.
 
 ---
 
-#### Tab 3 — Budget vs Actual — ✅ BUILT
+#### Tab 4 — Budget vs Actual — ✅ BUILT
 **Queries**: `budget_vs_actual` (per-month, param `budget_month`) + `budget_months` (distinct months for
 the selector — added this session because the budget table's coverage differs from cashflow's history).
 Files: `app/client/src/pages/budget/` (`BudgetPage`, `BudgetHealthHero`, `GroupSummaryCards`, `aggregate.ts`).
@@ -318,7 +407,7 @@ light and dark and so can't stay consistent with the design mockup.
 
 ---
 
-#### Tab 4 — Spend Analysis — ✅ BUILT
+#### Tab 5 — Spend Analysis — ✅ BUILT
 **Queries**: `spend_transactions` (params `start_date`, `end_date` — the range-driven rows) + `spend_monthly`
 (no params, fixed trailing-12-month aggregate for the Monthly Spend chart). The only tab that queries
 `silver.transactions` directly. Files: `app/client/src/pages/spend/` (`SpendAnalysisPage`, `DateRangePicker`,
@@ -364,7 +453,7 @@ personal-budgeting/
 ├── notebooks/
 │   ├── nb_bronze_ingest_tiller.py
 │   ├── nb_silver_transform_tiller.py
-│   └── nb_gold_transform_tiller.sql
+│   └── nb_gold__transform_tiller.sql   ← incl. gold.forecast_recurring (detection)
 └── app/                              ← bundle root (run CLI + npm from here)
     ├── .env                          ← gitignored, local only
     ├── .env.example                  ← committed, placeholder values
@@ -385,14 +474,21 @@ personal-budgeting/
 
 ## What to do next (in order)
 
-**All four tabs are built and deployed.** Remaining polish / follow-ups:
+**All five tabs are built. The Forecast tab is built and verified locally but NOT yet deployed** —
+run `databricks apps deploy -t default --profile personal-budgeting` from `app/`.
 
-1. Extend `tests/smoke.spec.ts` with assertions for each tab (currently only Cash Flow is asserted; the
-   other three render but aren't covered by the smoke suite).
+Remaining polish / follow-ups:
+
+1. ~~Extend `tests/smoke.spec.ts` with assertions for each tab~~ — **done.** The suite now covers all
+   five tabs structurally plus a Forecast interaction test. (Both original smoke tests had gone stale and
+   were failing: one asserted the pre-branding `personal-budgeting` heading, the other asserted Credit
+   Cards was "coming soon". Fixed.)
 2. Consider codifying the UC grants (gold + silver `SELECT`/`USE SCHEMA` for the app SP) declaratively in
    `databricks.yml` — they're currently applied imperatively (see Notes), so a from-scratch recreate needs
    them re-run.
-3. Optional: sortable columns on the ledger/merchants (reuse `SortableTableHead`); persist the Spend rail
+3. **Forecast follow-ups**: export/import the plan as JSON (localStorage backup / cross-device move);
+   an optional user-set minimum-balance buffer line (only the $0 danger line ships today).
+4. Optional: sortable columns on the ledger/merchants (reuse `SortableTableHead`); persist the Spend rail
    open/closed state to `localStorage`.
 
 When adding a query: write the `.sql`, run `npm run typegen`, THEN write the UI against the generated types.
@@ -404,7 +500,8 @@ When adding a query: write the `.sql`, run `npm run typegen`, THEN write the UI 
 ## Notes for Claude Code
 
 - The SQL queries this app runs are against pre-aggregated Gold tables wherever possible.
-  Only Tab 4 (Spend Analysis) queries `silver.transactions` directly.
+  Only Tab 5 (Spend Analysis) queries `silver.transactions` directly. The Forecast tab reads
+  `silver.balance_history` for its starting balance (`checking_balance`).
 - All monetary amounts in Gold tables use `decimal(12,2)`. Format as currency in the UI.
 - `month` and `budget_month` columns are always first-of-month dates (e.g., 2026-07-01).
   Display as "July 2026" not "2026-07-01".
@@ -424,6 +521,14 @@ When adding a query: write the `.sql`, run `npm run typegen`, THEN write the UI 
 - **Typegen needs a live warehouse.** Offline, a new query types as `result: unknown` (shown as
   `OFFLINE / degraded`); it self-heals to the real shape on the next connected `npm run typegen`. `predev`
   runs typegen automatically. Cast offline-degraded results in the page until then.
+- **`npm run typegen` does NOT load `.env`** — only `npm run dev` does (`--env-file-if-exists`). Run bare,
+  it can't see `DATABRICKS_CONFIG_PROFILE` and reports every new query as `OFFLINE / degraded` even with
+  the warehouse RUNNING. Load the env first:
+  `set -a && . ./.env && set +a && npx appkit generate-types`.
+- **Keep the smoke suite honest.** It is the `apps validate` / deploy gate, but nothing re-runs it during
+  normal dev, so assertions rot silently as the UI changes (two had been failing since the branding and
+  Credit Cards work). Assertions should be **structural** — headings, section labels — never data-specific
+  values, or a nightly gold refresh turns the deploy gate red.
 - **Smoke test reuses an existing server** (`reuseExistingServer: true` in `playwright.config.ts`). If a
   stray dev server is already on `DATABRICKS_APP_PORT` (8000), `apps validate`/`deploy` tests THAT stale
   server instead of the fresh build → confusing failures. Kill strays on 8000 first, or run a local verify
@@ -447,6 +552,24 @@ When adding a query: write the `.sql`, run `npm run typegen`, THEN write the UI 
   in `client/src/index.css` (we use `--group-*`) — do NOT reach for the shadcn `--chart-1..5` tokens for
   cross-theme identity: their hues differ between light and dark, so a series that looks right in one theme
   won't match a fixed design in the other.
+- **Card colors are the REAL card brand colors, split into two roles** (`--card-*` in `index.css`,
+  `cardColor()` vs `cardFaceColor()` in `creditcards/cards.ts`):
+  - `--card-*-face` = the exact brand hex (Amex `#052c55`, Prime `#7d7877`, Southwest `#686f76`,
+    Ally checking `#4b1256`). Large fills only — wallet card faces, planner initials chips.
+    Theme-independent. **All four are dark**, so `--card-ink` is now `#ffffff` and the faces use
+    white scrims (`bg-white/25`, `border-white/20`), not the black ones they had when the fills were vibrant.
+  - `--card-*` (bare) = the MARK, for small elements (ledger dots, split bars, chart series). Same hue,
+    **lightness-tuned per theme** — this is the one place a token legitimately differs between light and
+    dark, because the true navy and purple sit at **1.33:1** on the dark surface and vanish as an 8px dot.
+    Hue never moves, so identity holds.
+  - **Southwest's MARK is the airline's blue, not its grey.** The real Southwest and Prime Visa plastics
+    are both greys at **dE2000 8.2** — not separable as dots. The FACE keeps the true grey (identity there
+    comes from the name + ··last4 anyway); only the mark diverges.
+  - **Use dE2000, not contrast ratio, to judge categorical colors.** Contrast is lightness-only and will
+    report two clearly different hues as a collision (it flagged the navy vs the purple at 1.01:1 when
+    they are actually dE 20.2 apart). Current palette: every pair ≥ 15.5 dE, every mark ≥ 4.2:1 on its own
+    theme surface, and nothing within 23 dE of success/destructive/warning — those encode net direction and
+    must never read as card identity.
 - **Known lint noise:** `shared/appkit-types/analytics.d.ts` (auto-generated, DO NOT EDIT) trips
   `no-unused-vars` on its marker imports, so `npm run lint` reports errors there regardless of your changes.
   `databricks apps validate` uses ast-grep lint (`appkit lint`), which passes — that's the gate that matters.

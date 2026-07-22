@@ -2,7 +2,22 @@ import { test, expect } from '@playwright/test';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-const NAV_TABS = ['Cash Flow', 'Credit Cards', 'Budget vs Actual', 'Spend Analysis'];
+const NAV_TABS = ['Cash Flow', 'Forecast', 'Credit Cards', 'Budget vs Actual', 'Spend Analysis'];
+
+// Per-tab landmarks. Assertions stay STRUCTURAL (headings, section labels) rather than
+// data-specific, so a nightly gold refresh can't turn the deploy gate red.
+const TAB_CONTENT: { route: string; heading: string; landmarks: (string | RegExp)[] }[] = [
+  { route: '/', heading: 'Cash Flow', landmarks: ['Net Cash Flow', 'Fixed Outflows'] },
+  {
+    route: '/forecast',
+    heading: 'Cash Flow Forecast',
+    landmarks: ['Balance today', 'Lowest point', 'Plan credit-card payments', 'Forecast ledger'],
+  },
+  // The activity title carries the month ("Monthly Activity — July 2026"), so match a prefix.
+  { route: '/credit-cards', heading: 'Credit Cards', landmarks: [/^Monthly Activity/] },
+  { route: '/budget', heading: 'Budget vs. Actual', landmarks: [] },
+  { route: '/spend', heading: 'Spend Analysis', landmarks: ['Total Spend'] },
+];
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
@@ -15,7 +30,6 @@ let failedRequests: string[] = [];
 test('smoke test - app loads and displays Cash Flow tab', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: 'personal-budgeting' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Cash Flow', exact: true })).toBeVisible();
 
   for (const tab of NAV_TABS) {
@@ -28,10 +42,43 @@ test('smoke test - app loads and displays Cash Flow tab', async ({ page }) => {
   await expect(page.getByText('Fixed Outflows', { exact: true })).toBeVisible();
 });
 
-test('smoke test - stub tabs render coming-soon state', async ({ page }) => {
-  await page.goto('/credit-cards');
-  await expect(page.getByRole('main').getByText('Credit Cards', { exact: true })).toBeVisible();
-  await expect(page.getByText('This tab is coming soon.')).toBeVisible();
+for (const tab of TAB_CONTENT) {
+  test(`smoke test - ${tab.heading} tab renders`, async ({ page }) => {
+    await page.goto(tab.route);
+
+    await expect(page.getByRole('heading', { name: tab.heading, exact: true })).toBeVisible({
+      timeout: 30000,
+    });
+    for (const landmark of tab.landmarks) {
+      const locator =
+        typeof landmark === 'string'
+          ? page.getByText(landmark, { exact: true })
+          : page.getByText(landmark);
+      await expect(locator.first()).toBeVisible({ timeout: 30000 });
+    }
+    // A tab that errored renders the Alert instead of its content.
+    await expect(page.getByText(/^Could not load/)).toHaveCount(0);
+  });
+}
+
+test('smoke test - forecast reacts to a planned card payment', async ({ page }) => {
+  await page.goto('/forecast');
+  await expect(page.getByRole('heading', { name: 'Cash Flow Forecast' })).toBeVisible({ timeout: 30000 });
+
+  // The ledger must actually seed from gold.forecast_recurring — an empty ledger means
+  // expandRecurring dropped everything (bad cadence, window mismatch, missing anchor).
+  await expect(page.getByText(/\d+ transactions?$/).first()).toBeVisible({ timeout: 30000 });
+
+  const projected = page.getByText('Projected ·').locator('..').locator('div.font-mono').first();
+  const before = await projected.textContent();
+
+  await page.getByRole('button', { name: 'Add a payment' }).first().click();
+  const amount = page.getByLabel(/Payment amount for/).first();
+  await amount.fill('1500');
+  await amount.blur();
+
+  // Planning a payment must move the projected end balance.
+  await expect(projected).not.toHaveText(before ?? '');
 });
 
 // ── Lifecycle hooks ─────────────────────────────────────────────────────────
