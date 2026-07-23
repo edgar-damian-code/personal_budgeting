@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { TrendingDown, TrendingUp, Wallet } from 'lucide-react';
-import { useAnalyticsQuery } from '@databricks/appkit-ui/react';
+import { useAnalyticsQuery } from '../../lib/analyticsQuery';
 import {
   Card,
   CardContent,

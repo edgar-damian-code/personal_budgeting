@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { PieChart } from 'lucide-react';
-import { useAnalyticsQuery } from '@databricks/appkit-ui/react';
+import { useAnalyticsQuery } from '../../lib/analyticsQuery';
 import { sql } from '@databricks/appkit-ui/js';
 import {
   Alert,

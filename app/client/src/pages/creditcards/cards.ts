@@ -4,6 +4,8 @@
 // `color` is the MARK (small elements: dots, split bars, chart series — lightness-tuned
 // per theme). `face` is the EXACT card brand hex, for large surfaces where the fill reads
 // as the physical card. See the --card-* block in index.css for why they differ.
+import { realAccountNum } from '../../lib/demoAccounts';
+
 export const CARD_META: Record<
   string,
   { name: string; short: string; initials: string; color: string; face: string }
@@ -31,29 +33,35 @@ export const CARD_META: Record<
   },
 };
 
+// Resolve the meta for a last-4, mapping a demo-aliased number back to the real key first
+// (a no-op when demo mode is off / the number is already real).
+function meta(accountNum: string) {
+  return CARD_META[realAccountNum(accountNum)];
+}
+
 export function cardName(accountNum: string, fallback: string): string {
-  return CARD_META[accountNum]?.name ?? fallback;
+  return meta(accountNum)?.name ?? fallback;
 }
 
 // Compact name for tight surfaces (the Forecast planner cards and ledger rows).
 export function cardShortName(accountNum: string, fallback: string): string {
-  return CARD_META[accountNum]?.short ?? fallback;
+  return meta(accountNum)?.short ?? fallback;
 }
 
 // Two-letter monogram for the planner's card chip.
 export function cardInitials(accountNum: string, fallback: string): string {
-  return CARD_META[accountNum]?.initials ?? fallback.slice(0, 2).toUpperCase();
+  return meta(accountNum)?.initials ?? fallback.slice(0, 2).toUpperCase();
 }
 
 // Small-element identity color (ledger dots, split bars, chart series).
 export function cardColor(accountNum: string): string {
-  return CARD_META[accountNum]?.color ?? 'var(--muted-foreground)';
+  return meta(accountNum)?.color ?? 'var(--muted-foreground)';
 }
 
 // Exact brand color, for large fills that should read as the physical card. Pair with
 // --card-ink for text — all four brand colors are dark.
 export function cardFaceColor(accountNum: string): string {
-  return CARD_META[accountNum]?.face ?? 'var(--muted-foreground)';
+  return meta(accountNum)?.face ?? 'var(--muted-foreground)';
 }
 
 // Net activity: negative (paid the balance down) is good; positive (balance grew) is bad.

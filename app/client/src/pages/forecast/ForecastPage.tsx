@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from 'react';
 import { TrendingUp } from 'lucide-react';
 import {
   Alert,
@@ -11,8 +11,9 @@ import {
   EmptyMedia,
   EmptyTitle,
   Skeleton,
-  useAnalyticsQuery,
 } from '@databricks/appkit-ui/react';
+import { useAnalyticsQuery } from '../../lib/analyticsQuery';
+import { useDemoMode } from '../../lib/demoMode';
 import { cardShortName } from '../creditcards/cards';
 import type { CreditCardMonthlyRow } from '../creditcards/types';
 import { BalanceChart } from './BalanceChart';
@@ -22,7 +23,7 @@ import { buildEvents, computeWeeks, dailyBalances, newItemId, summarize, WINDOW_
 import { KpiStrip } from './KpiStrip';
 import { PaymentPlanner } from './PaymentPlanner';
 import { expandRecurring } from './recurring';
-import { clearPlan, loadPlan, savePlan } from './storage';
+import { clearPlan, EMPTY_PLAN, loadPlan, savePlan } from './storage';
 import type { CheckingBalanceRow, ForecastPlan, LedgerItem, PlannedPayment, RecurringRow } from './types';
 
 export function ForecastPage() {
@@ -53,19 +54,43 @@ export function ForecastPage() {
   const startISO = useMemo(() => todayISO(), []);
   const endISO = useMemo(() => addDays(startISO, WINDOW_DAYS - 1), [startISO]);
 
-  const [stored, setStored] = useState<ForecastPlan>(() => loadPlan());
+  const { demoMode } = useDemoMode();
   const [editMode, setEditMode] = useState(false);
 
-  // Persist on every change. The stored shape is exactly what `stored` holds, so there is
-  // no serialization step that could drift from the in-memory model.
+  // The user's real, persisted plan (the only thing written back to localStorage).
+  const [realPlan, setRealPlan] = useState<ForecastPlan>(() => loadPlan());
+  // In demo mode the page runs off an ephemeral empty plan that is never persisted, so
+  // demoing never overwrites the real saved forecast. An empty plan (startBal/plan/items
+  // all null/empty) makes the whole page derive from the queries — which are themselves
+  // demo-masked — so the ledger, starting balance, and planner all show sample data.
+  const [demoPlan, setDemoPlan] = useState<ForecastPlan>(EMPTY_PLAN);
+  useEffect(() => {
+    if (demoMode) setDemoPlan(EMPTY_PLAN); // fresh slate each time demo mode is switched on
+  }, [demoMode]);
+
+  const stored = demoMode ? demoPlan : realPlan;
+
+  // Stable dispatcher that routes mutations to the active plan. A ref keeps it stable
+  // (so the memoized callbacks below don't need to re-create when demo mode flips) while
+  // still reading the latest mode. Accepts a value or updater, like a React setter.
+  const demoModeRef = useRef(demoMode);
+  useEffect(() => {
+    demoModeRef.current = demoMode;
+  }, [demoMode]);
+  const setStored = useCallback((action: SetStateAction<ForecastPlan>) => {
+    if (demoModeRef.current) setDemoPlan(action);
+    else setRealPlan(action);
+  }, []);
+
+  // Persist only the real plan. Demo edits live in `demoPlan` and never reach storage.
   const firstRender = useRef(true);
   useEffect(() => {
     if (firstRender.current) {
       firstRender.current = false;
       return;
     }
-    savePlan(stored);
-  }, [stored]);
+    savePlan(realPlan);
+  }, [realPlan]);
 
   const queryBalance = balanceRow ? Number(balanceRow.current_balance) || 0 : 0;
   const startBal = stored.startBal ?? queryBalance;
@@ -156,10 +181,10 @@ export function ForecastPage() {
   const reseed = useCallback(() => setStored((s) => ({ ...s, items: null })), []);
 
   const resetAll = useCallback(() => {
-    clearPlan();
+    if (!demoModeRef.current) clearPlan(); // never wipe the real saved plan from demo mode
     setStored({ startBal: null, plan: {}, items: null });
     setEditMode(false);
-  }, []);
+  }, [setStored]);
 
   const anyError = recurringError ?? balanceError ?? cardError;
   const loading = recurringLoading || balanceLoading || cardLoading;

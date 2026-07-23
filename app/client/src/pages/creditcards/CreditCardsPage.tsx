@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { CreditCard } from 'lucide-react';
-import { useAnalyticsQuery } from '@databricks/appkit-ui/react';
+import { useAnalyticsQuery } from '../../lib/analyticsQuery';
 import {
   Alert,
   AlertDescription,

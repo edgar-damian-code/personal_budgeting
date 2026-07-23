@@ -40,6 +40,8 @@ The AppKit app is scaffolded and **deployed** (RUNNING on Databricks Apps). Buil
 
 **All five tabs are built.** (`ComingSoonPage` is no longer routed anywhere.)
 Nav order: Cash Flow · Forecast · Credit Cards · Budget vs Actual · Spend Analysis.
+A header-level **Demo mode** toggle pseudonymizes all on-screen data across every tab (see the Demo mode
+section below).
 
 ---
 
@@ -62,6 +64,51 @@ The app is branded **House of Damian** (premium fintech, dark-default). Applied 
   resource name stays `personal-budgeting`** (deployment identifier — not user-facing, ≤26 chars).
 - **To regenerate PNG favicons** (no ImageMagick/sharp installed): a throwaway Playwright spec renders
   `favicon.svg` at each size with `omitBackground` and screenshots the `<svg>` element into `client/public/`.
+
+---
+
+## Demo mode
+
+A manual, app-wide toggle (**Demo** button in the header, next to the theme switch) that pseudonymizes
+every figure on screen so the app can be shown off without exposing real finances. State lives in
+`localStorage` (`hod.demoMode`), defaults **off**, and is per-browser — it never affects other viewers or
+the data. Files: `client/src/lib/demoMode.tsx` (context + `useDemoMode`), `demoData.ts` (masking),
+`demoAccounts.ts` (last-4 aliases), `analyticsQuery.ts` (the wrapper), `components/DemoToggle.tsx`.
+
+**Architecture — one choke point.** Every page fetches through `useAnalyticsQuery`. Demo mode is a thin
+wrapper (`lib/analyticsQuery.ts`) around AppKit's hook: identical behavior, but when demo mode is on it runs
+each result array through `maskRows()` before it reaches the page. **All five pages import the hook from
+`../../lib/analyticsQuery`, NOT from `@databricks/appkit-ui/react`** — keep it that way when adding queries,
+or the new query won't be masked. The wrapper's signature is pinned via `Parameters`/`ReturnType`; per-query
+generics collapse to the default, which is harmless because every call site already casts `data` to its own
+row type (`as SomeRow[]`).
+
+**What `maskRows` does** (column-name driven, so it needs no per-query config):
+- **Money** → each *row* is scaled by its own multiple (0.4×–2.6×), deterministically hashed from the row so
+  it's stable across re-renders and identical for the same card/category across tabs. The factor is shared by
+  every monetary field in a row, so intra-row relationships still reconcile (`variance = budget − actual`,
+  `pct_used`, net totals). Different rows land on different multiples → varied, organic-looking numbers.
+- **Merchant/description** fields (`/desc|description|merchant/i`) → replaced with a fake label, deterministic
+  per source string; income-ish rows (direction `in`, type/group Income) draw from an income-label pool so
+  the forecast/ledger still reads sensibly.
+- **`account_num`** → swapped for a fixed fake last-4 via `demoAccounts.ts` (`1002→5581`, `1871→2048`, …).
+  Because `account_num` is *also* the identity key for card colors/names, the lookups in
+  `creditcards/cards.ts` (`CARD_META`) and `spend/aggregate.ts` (`ACCOUNT_COLOR`) run the value through
+  `realAccountNum()` first (maps a demo alias back to the real key; no-op when off). **Add an alias here
+  whenever a new account/card last-4 appears in displayed data.**
+- **Passthrough** (untouched): counts, ids, dates/months, `day_of_month`, `pct_used`, `confidence`, cadence,
+  anchors, and non-numeric strings (category, group, account name, institution, type).
+
+**Forecast is special.** The page mostly ignores its queries in favor of the saved plan in `localStorage`
+(`hod.forecast.plan.v1`) — `stored.items` (materialized ledger), `stored.startBal` (balance override), and
+`stored.plan` (planned payments) are all real and would bypass query masking. So in demo mode the page runs
+off an **ephemeral empty plan** (`EMPTY_PLAN`) which makes everything derive from the (masked) queries. Demo
+edits go to a separate in-memory `demoPlan` that is **never persisted**, and "Reset plan" is guarded so it
+can't wipe the real saved plan. Toggling demo off restores the real plan untouched.
+
+**Not a privacy boundary.** Masking is client-side — the real query still runs and true values exist in the
+browser's network tab. This is deliberate (an over-the-shoulder demo, never a hand-off); don't "harden" it
+into a server-side thing without a reason.
 
 ---
 

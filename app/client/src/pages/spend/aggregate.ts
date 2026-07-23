@@ -1,4 +1,5 @@
 import { groupRank } from '../../lib/groupColors';
+import { realAccountNum } from '../../lib/demoAccounts';
 import type { SpendTransactionRow } from './types';
 
 // Spend magnitude of a row (expenses are stored negative).
@@ -51,7 +52,8 @@ const ACCOUNT_COLOR: Record<string, string> = {
 };
 
 export function accountColor(accountNum: string): string {
-  return ACCOUNT_COLOR[accountNum] ?? 'var(--muted-foreground)';
+  // Resolve a demo-aliased last-4 back to the real key (no-op when demo mode is off).
+  return ACCOUNT_COLOR[realAccountNum(accountNum)] ?? 'var(--muted-foreground)';
 }
 
 export function distinctAccounts(rows: SpendTransactionRow[]): { key: string; label: string }[] {

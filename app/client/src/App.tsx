@@ -15,6 +15,8 @@ import { BudgetPage } from './pages/budget/BudgetPage';
 import { CreditCardsPage } from './pages/creditcards/CreditCardsPage';
 import { SpendAnalysisPage } from './pages/spend/SpendAnalysisPage';
 import { ThemeToggle } from './components/ThemeToggle';
+import { DemoToggle } from './components/DemoToggle';
+import { DemoModeProvider, useDemoMode } from './lib/demoMode';
 
 // House of Damian crest — inherits currentColor so it adapts to light/dark via text-*.
 function HodCrest({ className }: { className?: string }) {
@@ -75,6 +77,7 @@ function NavLinks({ className, linkClass, onClick }: { className?: string; linkC
 function Layout() {
   const isMobile = useIsMobile();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const { demoMode } = useDemoMode();
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -84,10 +87,16 @@ function Layout() {
           <span className="hidden text-base font-bold tracking-wide text-foreground sm:inline">
             HOUSE OF <span className="text-primary">DAMIAN</span>
           </span>
+          {demoMode && (
+            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+              Demo
+            </span>
+          )}
         </div>
         {/* Desktop nav — hidden below md breakpoint */}
         <NavLinks className="hidden md:flex gap-1" linkClass={navLinkClass} />
         <div className="ml-auto flex items-center gap-1">
+          <DemoToggle />
           <ThemeToggle />
           {/* Mobile nav — visible below md breakpoint */}
           <div className="md:hidden">
@@ -128,5 +137,9 @@ const router = createBrowserRouter([
 ]);
 
 export default function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <DemoModeProvider>
+      <RouterProvider router={router} />
+    </DemoModeProvider>
+  );
 }
